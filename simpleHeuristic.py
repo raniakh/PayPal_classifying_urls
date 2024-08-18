@@ -63,4 +63,4 @@ if __name__ == '__main__':
     sublinks = remove_www(sublinks)
     sublinks = standardize_url_wrapper(sublinks)
     sublinks['page_type'] = sublinks['sublinks'].apply(determine_page_type)
-    sublinks.to_csv('init_page_type.csv', index=False)
+    sublinks.to_csv('SimpleHeuristic_Classification.csv', index=False)
