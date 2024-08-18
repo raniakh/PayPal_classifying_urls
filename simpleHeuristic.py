@@ -41,30 +41,19 @@ def determine_page_type(url):
     if path == '' or path == '/':
         return 'Homepage'
 
-    if 'blog' in path or 'post' in path:
-        return 'Blog'
-    elif 'product' in path or 'item' in path:
-        return 'Product'
-    elif 'contact' in path or 'contact-us' in path or 'contactus' in path or 'info' in path:
-        return 'Help/Contact Us'
-    elif 'about' in path or 'team' in path:
-        return 'About'
-    elif 'service' in path or 'project' in path or 'portfolio' in path:
-        return 'Service'
-    elif 'home' in path or 'index' in path:
+    if '/home' in path or '/index' in path:
         return 'Homepage'
-    elif 'social' in path or 'instagram' in path or 'tiktok' in path or 'facebook' in path:
-        return 'Social Media'
-    elif 'sign' in path:
-        return 'Sign Up'
-    elif 'workwithus' in path or 'careers' in path or 'jobs' in path:
-        return 'Careers'
-    elif 'account' in path or 'login' in path:
-        return 'Login'
-    elif 'cart' in path or 'checkout' in path:
-        return 'Cart'
-    elif 'store' in path or 'merch' in path or 'collections' in path or 'shop' in path:
+    elif ('/store' in path or '/merch' in path or '/collections' in path
+          or '/shop' in path or 'product-line' in path or 'products' in path):
         return 'Category Overview'
+    elif 'product' in path or '/item' in path:
+        return 'Product Page'
+    elif '/contact' in path or '/contact-us' in path or '/contactus' in path or '/info' in path:
+        return 'Help/Contact Us'
+    elif '/about' in path or '/team' in path or '/aboutus' in path:
+        return 'About'
+    elif '/cart' in path or '/checkout' in path:
+        return 'Cart'
     else:
         return 'Other'
 
