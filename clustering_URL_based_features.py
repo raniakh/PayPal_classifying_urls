@@ -37,12 +37,14 @@ def remove_specialCharsAndDigits(df, column_name='sublinks'):
     def clean_url(url):
         return re.sub(r'[\W_0-9$^]+', '', url)
 
-    df['url_clean'] = df[column_name].apply(clean_url)
+    df['url_clean'] = df[column_name].apply(lambda x: x.split('https://')[-1])
+    df['url_clean'] = df['url_clean'].apply(clean_url)
     return df
 
 
 def extract_domain(df, column_name='sublinks'):
     df['domain'] = df[column_name].apply(lambda x: urlparse(x).netloc)
+    df['domain_name'] = df['domain'].apply(lambda x: x.split('.')[0])
     return df
 
 
@@ -72,5 +74,5 @@ if __name__ == '__main__':
     sublinks = extract_domain(sublinks)
     sublinks = extract_tld(sublinks)
     sublinks = extract_second_level_domain_wrapper(sublinks)
-    sublinks.to_csv('output/clustering.csv', index=False)
+    sublinks.to_csv('output/clustering_stage2.csv', index=False)
 
