@@ -150,6 +150,7 @@ def prepareDataFrame():
 
 if __name__ == '__main__':
     sublinks = pd.read_csv('data/sublinks.csv')
+    stop_words_g = set()
     prepareDataFrame()
     sublinks.to_csv('output/clustering_stage2.csv', index=False)
     # TODO - stop words like "pdf" "html", find out more stop words.
