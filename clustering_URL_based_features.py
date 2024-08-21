@@ -132,6 +132,43 @@ def createBiGrams(df):
     return df
 
 
+def handleMissingValues(df):
+    df['sld'] = df['sld'].fillna('None')
+    df['after_tld'] = df['after_tld'].fillna('None')
+    return df
+
+
+def handleStringValues(df):
+    # Options:
+    # Convert strings to numerical using hashing -> sklearn.feature_extraction.text.HashingVectorizer
+    #     Pros: * Efficient with large dataset, * fixed output size
+    #     Cons: * Collisions (noise in features), * loss of interpretability, *no semantic info
+    # Word Embeddings -> Word2Vec, GloVe
+    #     Pros: * captures semantic relations, * efficient representation, *pre-trained
+    #     Cons: * requires training on custom data, * limited to words (some domain names are concatenation
+    #             of 2 or more words without a separator)
+    # Pre-trained language model to generate embeddings for the strings -> sentence_transformers.SentenceTransformer
+    #     Pros: * Powerful representations
+    #     Cons: * computationally expensive, * overkill, * large in size
+    # TODO: ASK : is there a way I can get a token from PayPal for an llm?
+
+    return df
+
+
+def handleBigrams(df):
+    # Options
+    # Bag of words sklearn.feature_extraction.text.CountVectorizer
+    #     Pros: * Simple, * Interpretable, * each bigram gets its own feature
+    #     Cons: * High dimensionality, * sparse features
+    # TF-IDF sklearn.feature_extraction.text.TfidfVectorizer
+    #     Pros: * reduces the impact of very common bigrams
+    #     Cons: * high dimensionality, * sparse feature
+    # Hashing Vectorizer
+    #     Pros: * efficient, * scalable
+    #     Cons: * hash collisions, * not interpretable
+    return df
+
+
 def prepareDataFrame():
     global sublinks, stop_words_g
     sublinks = makeLowerCase(sublinks)
@@ -152,12 +189,18 @@ if __name__ == '__main__':
     sublinks = pd.read_csv('data/sublinks.csv')
     stop_words_g = set()
     prepareDataFrame()
-    sublinks.to_csv('output/clustering_stage2.csv', index=False)
+    sublinks = handleMissingValues(sublinks)
+    sublinks.to_csv('output/clustering_stage2_data_prep.csv', index=False)
     # TODO - stop words like "pdf" "html", find out more stop words.
+    # TODO - more features might be needed.
 
     # 1. remove special characters in domain name except / and - => DONE
     # 2. split domain_name and after_tld into words and remove special chars from after tld => DONE
     # 3. remove stop words in domain_name and after_tld , => Done
     # 3.1.  some words in domain name are connected, should I try to separate?
     # 4. create ngrams => Done
-    # 5. Clustering
+    # 5. Clustering => in progress
+    # 5.1. Feature prep: Nans, enconding, normalization => in progress
+    # 5.2. hierarchical clustering
+    # 5.3. saving each cluster
+    # 5.4. label each cluster
