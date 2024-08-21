@@ -1,6 +1,7 @@
 from urllib.parse import urlparse
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
+from nltk.util import ngrams, bigrams
 import re
 import tldextract
 import pandas as pd
@@ -65,6 +66,7 @@ def extractSecondLevelDomainWrapper(df, column_name='domain'):
             return None
 
     df['sld'] = df[column_name].apply(extractSecondLevelDomain)
+    # df['sld'] = df['sld'].fillna(value="None")
     return df
 
 
@@ -118,8 +120,20 @@ def makeLowerCase(df):
     return df
 
 
-if __name__ == '__main__':
-    sublinks = pd.read_csv('data/sublinks.csv')
+def createBiGrams(df):
+    def bigrams_gen(txt):
+        tokens = txt.split()
+        bigrams_list = list(bigrams(tokens))
+        return [' '.join(bigram) for bigram in bigrams_list]
+
+    df['concat_txt'] = df.apply(
+        lambda row: row['domain_name'] + ' ' + (row['sld'] or '') + ' ' + row['tld'] + ' ' + row['after_tld'], axis=1)
+    df['bigrams'] = df['concat_txt'].apply(bigrams_gen)
+    return df
+
+
+def prepareDataFrame():
+    global sublinks, stop_words_g
     sublinks = makeLowerCase(sublinks)
     sublinks = remove_www(sublinks)
     sublinks = standardize_url_wrapper(sublinks)
@@ -131,12 +145,18 @@ if __name__ == '__main__':
     stop_words_g = createStopWordsSet()
     sublinks = removeStopWordsWrapper(sublinks, 'domain_name')
     sublinks = removeStopWordsWrapper(sublinks, 'after_tld')
+    sublinks = createBiGrams(sublinks)
 
+
+if __name__ == '__main__':
+    sublinks = pd.read_csv('data/sublinks.csv')
+    prepareDataFrame()
     sublinks.to_csv('output/clustering_stage2.csv', index=False)
     # TODO - stop words like "pdf" "html", find out more stop words.
 
     # 1. remove special characters in domain name except / and - => DONE
     # 2. split domain_name and after_tld into words and remove special chars from after tld => DONE
     # 3. remove stop words in domain_name and after_tld , => Done
-    # 3.1.  some words in domain name are connected, how to handle?
-    # 4. TODO create ngrams
+    # 3.1.  some words in domain name are connected, should I try to separate?
+    # 4. create ngrams => Done
+    # 5. Clustering
