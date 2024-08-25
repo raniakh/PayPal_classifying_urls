@@ -166,6 +166,7 @@ def handleBigrams(df):
     # Hashing Vectorizer
     #     Pros: * efficient, * scalable
     #     Cons: * hash collisions, * not interpretable
+    # handling offline with Adva and Yael.
     return df
 
 
