@@ -2,3 +2,5 @@
 .DS_Store/
 
 .ipynb_checkpoints/
+/output/embeddings_stage2.csv
+output/.DS_Store
