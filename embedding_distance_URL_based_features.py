@@ -1,14 +1,19 @@
 from urllib.parse import urlparse
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
+from nltk.stem import WordNetLemmatizer
 from nltk.util import ngrams, bigrams
+import gensim.downloader as api
+from sklearn.metrics.pairwise import cosine_similarity
 import nltk
 import re
+import numpy as np
 import pandas as pd
 
-nltk.download('punkt')
-nltk.download('stopwords')
-nltk.download('wordnet')
+
+# nltk.download('punkt')
+# nltk.download('stopwords')
+# nltk.download('wordnet')
 
 
 def remove_www(df, column_name='sublinks'):
@@ -71,7 +76,7 @@ def tokenizeTxt(txt):
     return ' '.join(tokens)
 
 
-def removeStopWordsWrapper(df, column_name):
+def removeSpecialCharsAndStopWordsWrapper(df, column_name):
     def removeStopWords(txt):
         words = txt.split()
         filtered_words = [word for word in words if word not in stop_words_g and len(word) > 1]
@@ -104,18 +109,41 @@ def prepareDataFrame():
     sublinks = standardize_url_wrapper(sublinks)
     sublinks = extractAfterTldWrapper(sublinks)
     stop_words_g = createStopWordsSet()
-    sublinks = removeStopWordsWrapper(sublinks, 'after_tld')
+    sublinks = removeSpecialCharsAndStopWordsWrapper(sublinks, 'after_tld')
     sublinks = handleMissingValues(sublinks)
 
 
 def preprocess_after_tld(df):
+    wnl = WordNetLemmatizer()
+
     def preprocess_txt(txt):
         if not txt:
             return ""
+        tokens = word_tokenize(txt)
+        tokens = [wnl.lemmatize(word) for word in tokens]
+        return " ".join(tokens)
 
-    # TODO lemmatization of words , tokens df[preprocessed_after_tld] = ...
+    df['processed_after_tld'] = df['after_tld'].apply(preprocess_txt)
     return df
 
+
+def getEmbeddingsWrapper(df):
+    def getEmbeddings(txt, model):
+        words = txt.split()
+        word_embeddings = [model[word] for word in words if word in model]
+        if word_embeddings:
+            return np.mean(word_embeddings, axis=0)
+        else:
+            return np.zeros(model.vector_size)
+
+    word_vectors = api.load("word2vec-google-news-300")
+    df['embeddings_after_tld'] = df['processed_after_tld'].apply(lambda x: getEmbeddings(x, word_vectors))
+    return df
+
+
+def calculateSimilarity(df):
+    similarity_matrix = cosine_similarity(np.vstack(df['embeddings_after_tld'].values))
+    return similarity_matrix
 
 
 if __name__ == '__main__':
@@ -123,5 +151,8 @@ if __name__ == '__main__':
     stop_words_g = set()
     prepareDataFrame()
     sublinks = preprocess_after_tld(sublinks)
-    #TODO create embeddings
     sublinks.to_csv('output/embeddings_stage2_data_prep.csv', index=False)
+    sublinks = getEmbeddingsWrapper(sublinks)
+    # TODO calculate similarity/distance between embeddings
+    # TODO cluster based on similarity
+    sublinks.to_csv('output/embeddings_stage2.csv', index=False)
