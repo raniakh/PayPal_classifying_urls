@@ -14,9 +14,17 @@ import pandas as pd
 import time
 
 
-# nltk.download('punkt')
-# nltk.download('stopwords')
-# nltk.download('wordnet')
+nltk.download('punkt')
+nltk.download('stopwords')
+nltk.download('wordnet')
+
+
+def makeLowerCase(df):
+    def lowerCase(txt):
+        return txt.lower()
+
+    df['sublinks'] = df['sublinks'].apply(lowerCase)
+    return df
 
 
 def remove_www(df, column_name='sublinks'):
@@ -97,25 +105,6 @@ def handleMissingValues(df):
     return df
 
 
-def makeLowerCase(df):
-    def lowerCase(txt):
-        return txt.lower()
-
-    df['sublinks'] = df['sublinks'].apply(lowerCase)
-    return df
-
-
-def prepareDataFrame():
-    global sublinks, stop_words_g
-    sublinks = makeLowerCase(sublinks)
-    sublinks = remove_www(sublinks)
-    sublinks = standardize_url_wrapper(sublinks)
-    sublinks = extractAfterTldWrapper(sublinks)
-    stop_words_g = createStopWordsSet()
-    sublinks = removeSpecialCharsAndStopWordsWrapper(sublinks, 'after_tld')
-    sublinks = handleMissingValues(sublinks)
-
-
 def preprocessAfterTLD(df):
     wnl = WordNetLemmatizer()
 
@@ -130,54 +119,24 @@ def preprocessAfterTLD(df):
     return df
 
 
-def getEmbeddingsWrapper(df):
-    def getEmbeddings(txt, model):
-        words = txt.split()
-        word_embeddings = [model[word] for word in words if word in model]
-        if word_embeddings:
-            return np.mean(word_embeddings, axis=0)
-        else:
-            return np.zeros(model.vector_size)
-
-    word_vectors = api.load("word2vec-google-news-300")
-    df['embeddings_after_tld'] = df['processed_after_tld'].apply(lambda x: getEmbeddings(x, word_vectors))
-    return df
+def getContent():
+    pass
 
 
-def calculateSimilarity(df):
-    similarity_matrix = cosine_similarity(np.vstack(df['embeddings_after_tld'].values))
-    return similarity_matrix
-
-
-def cluster(df, n_clusters):
-    kmeans = KMeans(n_clusters=n_clusters, random_state=42)
-    embeddings = np.array(df['embeddings_after_tld'].tolist())
-    classes = kmeans.fit_predict(embeddings)
-    df['cluster'] = (list(map(str, classes)))
-    return df
-
-
-def plotClusters(df):
-    tsne = TSNE(n_components=2, perplexity=5, random_state=42)
-    embeddings = np.array(df['embeddings_after_tld'].tolist())
-    embeddings2d = tsne.fit_transform(embeddings)
-
-    scatter = plt.scatter(embeddings2d[:, 0], embeddings2d[:, 1], c=df['cluster'].astype(int))
-    plt.colorbar(scatter, label='Cluster')
-    plt.title('2D Scatter Plot of URLs Colored by Cluster')
-    plt.show()
+def prepareDataFrame():
+    global sublinks, stop_words_g
+    sublinks = makeLowerCase(sublinks)
+    sublinks = remove_www(sublinks)
+    sublinks = standardize_url_wrapper(sublinks)
+    sublinks = extractAfterTldWrapper(sublinks)
+    stop_words_g = createStopWordsSet()
+    sublinks = removeSpecialCharsAndStopWordsWrapper(sublinks, 'after_tld')
+    sublinks = handleMissingValues(sublinks)
 
 
 if __name__ == '__main__':
     start_time = time.time()
     sublinks = pd.read_csv('data/sublinks.csv')
-    # sublinks = sublinks.iloc[:50]
+    sublinks = sublinks.iloc[:50]
     stop_words_g = set()
     prepareDataFrame()
-    sublinks = preprocessAfterTLD(sublinks)
-    sublinks.to_csv('output/embeddings_stage2_data_prep.csv', index=False)
-    sublinks = getEmbeddingsWrapper(sublinks)
-    sublinks = cluster(sublinks, n_clusters=10)
-    plotClusters(sublinks)
-    sublinks.to_csv('output/embeddings_stage2.csv', index=False)
-    print("--- %.2f seconds ---" % (time.time() - start_time))
