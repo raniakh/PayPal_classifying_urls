@@ -2,13 +2,16 @@ from urllib.parse import urlparse
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
 from nltk.stem import WordNetLemmatizer
-from nltk.util import ngrams, bigrams
+import matplotlib.pyplot as plt
 import gensim.downloader as api
+from sklearn.manifold import TSNE
 from sklearn.metrics.pairwise import cosine_similarity
+from sklearn.cluster import KMeans
 import nltk
 import re
 import numpy as np
 import pandas as pd
+import time
 
 
 # nltk.download('punkt')
@@ -146,13 +149,35 @@ def calculateSimilarity(df):
     return similarity_matrix
 
 
+def cluster(df, n_clusters):
+    kmeans = KMeans(n_clusters=n_clusters, random_state=42)
+    embeddings = np.array(df['embeddings_after_tld'].tolist())
+    classes = kmeans.fit_predict(embeddings)
+    df['cluster'] = (list(map(str, classes)))
+    return df
+
+
+def plotClusters(df):
+    tsne = TSNE(n_components=2, perplexity=5, random_state=42)
+    embeddings = np.array(df['embeddings_after_tld'].tolist())
+    embeddings2d = tsne.fit_transform(embeddings)
+
+    scatter = plt.scatter(embeddings2d[:, 0], embeddings2d[:, 1], c=df['cluster'].astype(int))
+    plt.colorbar(scatter, label='Cluster')
+    plt.title('2D Scatter Plot of URLs Colored by Cluster')
+    plt.show()
+
+
 if __name__ == '__main__':
+    start_time = time.time()
     sublinks = pd.read_csv('data/sublinks.csv')
+    # sublinks = sublinks.iloc[:50]
     stop_words_g = set()
     prepareDataFrame()
     sublinks = preprocess_after_tld(sublinks)
     sublinks.to_csv('output/embeddings_stage2_data_prep.csv', index=False)
     sublinks = getEmbeddingsWrapper(sublinks)
-    # TODO calculate similarity/distance between embeddings
-    # TODO cluster based on similarity
+    sublinks = cluster(sublinks, n_clusters=10)
+    plotClusters(sublinks)
     sublinks.to_csv('output/embeddings_stage2.csv', index=False)
+    print("--- %.2f seconds ---" % (time.time() - start_time))
