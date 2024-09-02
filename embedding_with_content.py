@@ -16,6 +16,7 @@ import requests
 from bs4 import BeautifulSoup
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
+
 # nltk.download('punkt')
 # nltk.download('stopwords')
 # nltk.download('wordnet')
@@ -30,12 +31,13 @@ def createStopWordsSet():
 
 
 def remove_specialCharsAndDigits(column_name):
-    # def clean_url(url):
-    #     pattern = r'[\d_\.\-\:\?\$\%\/\=\+]'
-    #     return re.sub(pattern, ' ', url)
-    #
-    # df[column_name] = df[column_name].apply(clean_url)
-    return sublinks
+    global sublinks
+
+    def clean_url(url):
+        pattern = r'[\d_\.\-\:\?\$\%\/\=\+\,\—\–\"\``]'
+        return re.sub(pattern, ' ', url)
+
+    sublinks[column_name] = sublinks[column_name].apply(clean_url)
 
 
 def tokenizeTxt(txt):
@@ -44,16 +46,16 @@ def tokenizeTxt(txt):
 
 
 def removeSpecialCharsAndStopWordsWrapper(column_name):
-    # def removeStopWords(txt):
-    #     words = txt.split()
-    #     filtered_words = [word for word in words if word not in stop_words_g and len(word) > 1]
-    #     return ' '.join(filtered_words)
-    #
-    # df = remove_specialCharsAndDigits(df, column_name)
-    # df[column_name] = df[column_name].apply(tokenizeTxt)
-    # df[column_name] = df[column_name].apply(removeStopWords)
+    global sublinks
 
-    return sublinks
+    def removeStopWords(txt):
+        words = txt.split()
+        filtered_words = [word for word in words if word not in stop_words_g and len(word) > 1]
+        return ' '.join(filtered_words)
+
+    remove_specialCharsAndDigits(column_name)
+    sublinks[column_name] = sublinks[column_name].apply(tokenizeTxt)
+    sublinks[column_name] = sublinks[column_name].apply(removeStopWords)
 
 
 def handleMissingValues():
@@ -61,7 +63,6 @@ def handleMissingValues():
     # df['after_tld'] = df['after_tld'].replace("", "None")
     for column_name in sublinks:
         sublinks[column_name] = sublinks[column_name].fillna("None")
-    return sublinks
 
 
 def extractMetadata(url):
@@ -109,16 +110,38 @@ def extractMetadataParallelWrapper():
     sublinks = sublinks.merge(df_metadata, on='sublinks')
 
 
+def preprocessMetaData():
+    global sublinks
+    wnl = WordNetLemmatizer()
+
+    def preprocess_txt(txt):
+        if not txt:
+            return ""
+        tokens = word_tokenize(txt)
+        tokens = [wnl.lemmatize(word) for word in tokens]
+        return " ".join(tokens)
+
+    sublinks['title'] = sublinks['title'].apply(preprocess_txt)
+    sublinks['description'] = sublinks['description'].apply(preprocess_txt)
+
+
 if __name__ == '__main__':
     start_time = time.time()
     sublinks = pd.read_csv('output/embeddings_stage2_data_prep.csv')
     sublinks = sublinks.iloc[:50]
     extractMetadataParallelWrapper()
     handleMissingValues()
+    stop_words_g = createStopWordsSet()
+    removeSpecialCharsAndStopWordsWrapper('title')
+    removeSpecialCharsAndStopWordsWrapper('description')
+    preprocessMetaData()
     sublinks.to_csv('output/sublinks_with_content.csv', index=False)
-    # stop_words_g = set()
+
 
 # TODO IDEAS: map tld to type ans use as a feature?
 # TODO -> https://onlinelibrary.wiley.com/doi/10.1155/2021/2470897 ->
 #  this paper designs an algorithm to identify noisy text tags,
-#  features: Title tag, Description tag,
+#  TODO -> create embeddings for title and description.
+#            merge with after_tld embeddings.
+#             Cluster
+#
