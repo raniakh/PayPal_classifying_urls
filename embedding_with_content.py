@@ -13,56 +13,12 @@ import numpy as np
 import pandas as pd
 import time
 import requests
+from bs4 import BeautifulSoup
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
-nltk.download('punkt')
-nltk.download('stopwords')
-nltk.download('wordnet')
-
-
-def makeLowerCase(df):
-    def lowerCase(txt):
-        return txt.lower()
-
-    df['sublinks'] = df['sublinks'].apply(lowerCase)
-    return df
-
-
-def remove_www(df, column_name='sublinks'):
-    df[column_name] = df[column_name].str.replace('www.', '', regex=False)
-    return df
-
-
-def standardize_url_wrapper(df, column_name='sublinks'):
-    def standardize_url(url):
-        parsed_url = urlparse(url)
-        scheme = parsed_url.scheme
-        domain = parsed_url.netloc
-        path = parsed_url.path
-        if path == '/' or path == '':
-            return f'{scheme}://{domain}'
-        return url
-
-    df[column_name] = df[column_name].apply(standardize_url)
-    return df
-
-
-def extractAfterTldWrapper(df, column_name='sublinks'):
-    def extractAfterTld(url):
-        parsed_url = urlparse(url)
-        after_tld = parsed_url.path
-        if parsed_url.params:
-            after_tld += ';' + parsed_url.params
-        if parsed_url.query:
-            after_tld += '?' + parsed_url.query
-        if parsed_url.fragment:
-            after_tld += '#' + parsed_url.fragment
-        if not after_tld or after_tld == " ":  # if this is a homepage
-            after_tld = 'None'
-        return after_tld
-
-    df['after_tld'] = df[column_name].apply(extractAfterTld)
-
-    return df
+# nltk.download('punkt')
+# nltk.download('stopwords')
+# nltk.download('wordnet')
 
 
 def createStopWordsSet():
@@ -73,13 +29,13 @@ def createStopWordsSet():
     return stop_words
 
 
-def remove_specialCharsAndDigits(df, column_name):
-    def clean_url(url):
-        pattern = r'[\d_\.\-\:\?\$\%\/\=\+]'
-        return re.sub(pattern, ' ', url)
-
-    df[column_name] = df[column_name].apply(clean_url)
-    return df
+def remove_specialCharsAndDigits(column_name):
+    # def clean_url(url):
+    #     pattern = r'[\d_\.\-\:\?\$\%\/\=\+]'
+    #     return re.sub(pattern, ' ', url)
+    #
+    # df[column_name] = df[column_name].apply(clean_url)
+    return sublinks
 
 
 def tokenizeTxt(txt):
@@ -87,59 +43,80 @@ def tokenizeTxt(txt):
     return ' '.join(tokens)
 
 
-def removeSpecialCharsAndStopWordsWrapper(df, column_name):
-    def removeStopWords(txt):
-        words = txt.split()
-        filtered_words = [word for word in words if word not in stop_words_g and len(word) > 1]
-        return ' '.join(filtered_words)
+def removeSpecialCharsAndStopWordsWrapper(column_name):
+    # def removeStopWords(txt):
+    #     words = txt.split()
+    #     filtered_words = [word for word in words if word not in stop_words_g and len(word) > 1]
+    #     return ' '.join(filtered_words)
+    #
+    # df = remove_specialCharsAndDigits(df, column_name)
+    # df[column_name] = df[column_name].apply(tokenizeTxt)
+    # df[column_name] = df[column_name].apply(removeStopWords)
 
-    df = remove_specialCharsAndDigits(df, column_name)
-    df[column_name] = df[column_name].apply(tokenizeTxt)
-    df[column_name] = df[column_name].apply(removeStopWords)
-
-    return df
-
-
-def handleMissingValues(df):
-    df['after_tld'] = df['after_tld'].replace("", "None")
-    return df
+    return sublinks
 
 
-def preprocessAfterTLD(df):
-    wnl = WordNetLemmatizer()
-
-    def preprocess_txt(txt):
-        if not txt:
-            return ""
-        tokens = word_tokenize(txt)
-        tokens = [wnl.lemmatize(word) for word in tokens]
-        return " ".join(tokens)
-
-    df['processed_after_tld'] = df['after_tld'].apply(preprocess_txt)
-    return df
+def handleMissingValues():
+    global sublinks
+    # df['after_tld'] = df['after_tld'].replace("", "None")
+    for column_name in sublinks:
+        sublinks[column_name] = sublinks[column_name].fillna("None")
+    return sublinks
 
 
 def extractMetadata(url):
-    pass
+    try:
+        response = requests.get(url, timeout=15)
+        response.raise_for_status()
+
+        soup = BeautifulSoup(response.content, 'html.parser')
+
+        title = soup.title.string if soup.title else 'None'
+
+        description = None
+        if soup.find("meta", attrs={"name": "description"}):
+            description = soup.find("meta", attrs={"name": "description"}).get("content")
+        if not description:
+            description = 'None'
+        return {'sublinks': url, 'title': title, 'description': description}
+    except (requests.exceptions.RequestException, Exception) as e:
+        print("Exception occurred while requesting {url}", url)
+        print("#Error: ", str(e))
+        return {'sublinks': url, 'title': None, 'description': None}
 
 
-def prepareDataFrame():
-    global sublinks, stop_words_g
-    sublinks = makeLowerCase(sublinks)
-    sublinks = remove_www(sublinks)
-    sublinks = standardize_url_wrapper(sublinks)
-    sublinks = extractAfterTldWrapper(sublinks)
-    stop_words_g = createStopWordsSet()
-    sublinks = removeSpecialCharsAndStopWordsWrapper(sublinks, 'after_tld')
-    sublinks = handleMissingValues(sublinks)
+def extractMetadataParallel(urls, max_wrokers=10):
+    results = []
+
+    with ThreadPoolExecutor(max_workers=max_wrokers) as executor:
+        future_to_url = {executor.submit(extractMetadata, url): url for url in urls}
+
+        for future in as_completed(future_to_url):
+            try:
+                result = future.result()
+                results.append(result)
+            except Exception as ex:
+                print('#Error: ', str(ex))
+                url = future_to_url[future]
+                results.append({'sublinks': url, 'title': None, 'description': None})
+    return results
+
+
+def extractMetadataParallelWrapper():
+    global sublinks
+    results = extractMetadataParallel(sublinks['sublinks'].tolist(), max_wrokers=10)
+    df_metadata = pd.DataFrame(results)
+    sublinks = sublinks.merge(df_metadata, on='sublinks')
 
 
 if __name__ == '__main__':
     start_time = time.time()
-    sublinks = pd.read_csv('data/sublinks.csv')
+    sublinks = pd.read_csv('output/embeddings_stage2_data_prep.csv')
     sublinks = sublinks.iloc[:50]
-    stop_words_g = set()
-    prepareDataFrame()
+    extractMetadataParallelWrapper()
+    handleMissingValues()
+    sublinks.to_csv('output/sublinks_with_content.csv', index=False)
+    # stop_words_g = set()
 
 # TODO IDEAS: map tld to type ans use as a feature?
 # TODO -> https://onlinelibrary.wiley.com/doi/10.1155/2021/2470897 ->
