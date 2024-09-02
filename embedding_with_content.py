@@ -12,7 +12,7 @@ import re
 import numpy as np
 import pandas as pd
 import time
-
+import requests
 
 nltk.download('punkt')
 nltk.download('stopwords')
@@ -119,7 +119,7 @@ def preprocessAfterTLD(df):
     return df
 
 
-def getContent():
+def extractMetadata(url):
     pass
 
 
@@ -140,3 +140,8 @@ if __name__ == '__main__':
     sublinks = sublinks.iloc[:50]
     stop_words_g = set()
     prepareDataFrame()
+
+# TODO IDEAS: map tld to type ans use as a feature?
+# TODO -> https://onlinelibrary.wiley.com/doi/10.1155/2021/2470897 ->
+#  this paper designs an algorithm to identify noisy text tags,
+#  features: Title tag, Description tag,
