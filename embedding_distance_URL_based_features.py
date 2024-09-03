@@ -153,7 +153,7 @@ def cluster(df, n_clusters):
     kmeans = KMeans(n_clusters=n_clusters, random_state=42)
     embeddings = np.array(df['embeddings_after_tld'].tolist())
     classes = kmeans.fit_predict(embeddings)
-    df['cluster'] = (list(map(str, classes)))
+    df['cluster_stage2'] = (list(map(str, classes)))
     return df
 
 
@@ -162,7 +162,7 @@ def plotClusters(df):
     embeddings = np.array(df['embeddings_after_tld'].tolist())
     embeddings2d = tsne.fit_transform(embeddings)
 
-    scatter = plt.scatter(embeddings2d[:, 0], embeddings2d[:, 1], c=df['cluster'].astype(int))
+    scatter = plt.scatter(embeddings2d[:, 0], embeddings2d[:, 1], c=df['cluster_stage2'].astype(int))
     plt.colorbar(scatter, label='Cluster')
     plt.title('2D Scatter Plot of URLs Colored by Cluster')
     plt.show()
@@ -171,7 +171,7 @@ def plotClusters(df):
 if __name__ == '__main__':
     start_time = time.time()
     sublinks = pd.read_csv('data/sublinks.csv')
-    # sublinks = sublinks.iloc[:50]
+    sublinks = sublinks.iloc[:50]
     stop_words_g = set()
     prepareDataFrame()
     sublinks = preprocessAfterTLD(sublinks)
@@ -180,4 +180,5 @@ if __name__ == '__main__':
     sublinks = cluster(sublinks, n_clusters=10)
     plotClusters(sublinks)
     sublinks.to_csv('output/embeddings_stage2.csv', index=False)
+    sublinks.to_pickle('output/embeddings_stage2.pkl')
     print("--- %.2f seconds ---" % (time.time() - start_time))

@@ -4,6 +4,7 @@ from nltk.tokenize import word_tokenize
 from nltk.stem import WordNetLemmatizer
 import matplotlib.pyplot as plt
 import gensim.downloader as api
+from sklearn.preprocessing import StandardScaler
 from sklearn.manifold import TSNE
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.cluster import KMeans
@@ -125,18 +126,59 @@ def preprocessMetaData():
     sublinks['description'] = sublinks['description'].apply(preprocess_txt)
 
 
+def getEmbeddingsWrapper():
+    global sublinks
+
+    def getEmbeddings(txt, model):
+        words = txt.split()
+        word_embeddings = [model[word] for word in words if word in model]
+        if word_embeddings:
+            return np.mean(word_embeddings, axis=0)
+        else:
+            return np.zeros(model.vector_size)
+
+    word_vectors = api.load("word2vec-google-news-300")
+    sublinks['embeddings_title'] = sublinks['title'].apply(lambda x: getEmbeddings(x, word_vectors))
+    sublinks['embeddings_desc'] = sublinks['description'].apply(lambda x: getEmbeddings(x, word_vectors))
+
+
+def combineEmbeddings():
+    global sublinks
+
+    sublinks['combined_embeddings'] = sublinks.apply(lambda row: row['embeddings_after_tld'] + row['embeddings_title']
+                                                     + row['embeddings_desc'], axis=1)
+
+    # combined_embed = sublinks['combined_embeddings'].tolist()
+    # scaler = StandardScaler()
+    # combined_embed_scaled = scaler.fit_transform(combined_embed)
+    # return combined_embed_scaled
+
+
+def cluster(n_clusters=10):
+    global sublinks
+    kmeans = KMeans(n_clusters=n_clusters, random_state=42)
+    embeddings = np.array(sublinks['combined_embeddings'].tolist())
+    classes = kmeans.fit_predict(embeddings)
+    sublinks['cluster_stage3'] = (list(map(str, classes)))
+
+
 if __name__ == '__main__':
     start_time = time.time()
-    sublinks = pd.read_csv('output/embeddings_stage2_data_prep.csv')
-    sublinks = sublinks.iloc[:50]
+    # sublinks = pd.read_csv('output/embeddings_stage2.csv')
+    sublinks = pd.read_pickle('output/embeddings_stage2.pkl')
+    # sublinks = sublinks.iloc[:50]
     extractMetadataParallelWrapper()
     handleMissingValues()
     stop_words_g = createStopWordsSet()
     removeSpecialCharsAndStopWordsWrapper('title')
     removeSpecialCharsAndStopWordsWrapper('description')
     preprocessMetaData()
-    sublinks.to_csv('output/sublinks_with_content.csv', index=False)
+    getEmbeddingsWrapper()
+    combineEmbeddings()
+    cluster(n_clusters=10)
 
+    sublinks.to_csv('output/sublinks_with_content_combine_embed.csv', index=False)
+    sublinks.to_pickle('output/sublinks_with_content_combine_embed.pkl')
 
 # TODO IDEAS: map tld to type ans use as a feature?
 # TODO -> https://onlinelibrary.wiley.com/doi/10.1155/2021/2470897 ->
