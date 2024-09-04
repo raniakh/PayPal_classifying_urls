@@ -68,7 +68,7 @@ def handleMissingValues():
 
 def extractMetadata(url):
     try:
-        response = requests.get(url, timeout=15)
+        response = requests.get(url, timeout=30)
         response.raise_for_status()
 
         soup = BeautifulSoup(response.content, 'html.parser')
@@ -82,7 +82,7 @@ def extractMetadata(url):
             description = 'None'
         return {'sublinks': url, 'title': title, 'description': description}
     except (requests.exceptions.RequestException, Exception) as e:
-        print("Exception occurred while requesting {url}", url)
+        print("Exception occurred while requesting ", url)
         print("#Error: ", str(e))
         return {'sublinks': url, 'title': None, 'description': None}
 
@@ -164,9 +164,9 @@ def cluster(n_clusters=10):
 
 if __name__ == '__main__':
     start_time = time.time()
-    # sublinks = pd.read_csv('output/embeddings_stage2.csv')
+    # sublinks = pd.read_csv('output/embeddings_stage2_10Clusters.csv')
     sublinks = pd.read_pickle('output/embeddings_stage2.pkl')
-    # sublinks = sublinks.iloc[:50]
+    # sublinks = sublinks.iloc[:300]
     extractMetadataParallelWrapper()
     handleMissingValues()
     stop_words_g = createStopWordsSet()
@@ -175,9 +175,9 @@ if __name__ == '__main__':
     preprocessMetaData()
     getEmbeddingsWrapper()
     combineEmbeddings()
-    cluster(n_clusters=10)
-
-    sublinks.to_csv('output/sublinks_with_content_combine_embed.csv', index=False)
+    cluster(n_clusters=20)
+    header = ["sublinks", "after_tld", "cluster_stage2", "title","description", "cluster_stage3"]
+    sublinks.to_csv('output/sublinks_with_content_combine_embed_20Clusters.csv', columns=header, index=False)
     sublinks.to_pickle('output/sublinks_with_content_combine_embed.pkl')
 
 # TODO IDEAS: map tld to type ans use as a feature?

@@ -171,14 +171,15 @@ def plotClusters(df):
 if __name__ == '__main__':
     start_time = time.time()
     sublinks = pd.read_csv('data/sublinks.csv')
-    sublinks = sublinks.iloc[:50]
+    sublinks = sublinks.iloc[:300]
     stop_words_g = set()
     prepareDataFrame()
     sublinks = preprocessAfterTLD(sublinks)
     sublinks.to_csv('output/embeddings_stage2_data_prep.csv', index=False)
     sublinks = getEmbeddingsWrapper(sublinks)
-    sublinks = cluster(sublinks, n_clusters=10)
+    sublinks = cluster(sublinks, n_clusters=20)
     plotClusters(sublinks)
-    sublinks.to_csv('output/embeddings_stage2.csv', index=False)
+    header = ["sublinks", "after_tld", "cluster_stage2"]
+    sublinks.to_csv('output/embeddings_stage2_20Clusters.csv', columns=header, index=False)
     sublinks.to_pickle('output/embeddings_stage2.pkl')
     print("--- %.2f seconds ---" % (time.time() - start_time))
