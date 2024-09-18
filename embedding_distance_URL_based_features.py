@@ -19,7 +19,7 @@ import time
 # nltk.download('wordnet')
 
 ######
-# STAGE 2 OF THE FUNNEL - POC SHOWED IT WORKED. 
+# STAGE 2 OF THE FUNNEL - POC SHOWED IT WORKED.
 ######
 def remove_www(df, column_name='sublinks'):
     df[column_name] = df[column_name].str.replace('www.', '', regex=False)
