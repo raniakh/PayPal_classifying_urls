@@ -7,7 +7,7 @@ import seaborn as sns
 
 
 # TODO check the rate of "false" classes
-
+# STAGE 1 OF FUNNEL
 def remove_duplicates_nulls(df):
     df.drop_duplicates(inplace=True)
     df.dropna(inplace=True)

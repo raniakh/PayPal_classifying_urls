@@ -22,7 +22,9 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 # nltk.download('stopwords')
 # nltk.download('wordnet')
 
-
+#######
+# UNDER RESEARCH FOR STAGE 3 OF THE FUNNEL
+#######
 def createStopWordsSet():
     stop_words = set(stopwords.words('english'))
     url_top_words = ["pdf", "html"]  # TODO: check for more stop words - analysis
