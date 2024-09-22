@@ -104,7 +104,7 @@ def handleMissingValues():
         sublinks[col] = sublinks[col].replace("", "None")
 
 
-# URLS were craweled with query part - remove them
+# URLS were crawled with query part - remove them
 # TODO next crawl do not save the query part of the url.
 def removeQuery():
     global sublinks
@@ -140,36 +140,51 @@ def lemmatizeTxt():
         tokens = [wnl.lemmatize(word) for word in tokens]
         return " ".join(tokens)
 
-    for col in sublinks.columns[2:]:
-        sublinks[col] = sublinks['col'].apply(preprocess_txt)
+    for col in sublinks.columns[3:]:
+        sublinks[col] = sublinks[col].apply(preprocess_txt)
 
 
 def removeNonEnglishWebsites():
     global sublinks
+    domains = dict()
+    print('## NOW RUNNING removeNonEnglishWebsites')
 
     def detect_language(url):
+        domain = urlparse(url).netloc
         try:
-            head_response = requests.head(url, timeout=5)
+            if domain in domains.keys():
+                return domains.get(domain)
+            head_response = requests.head(domain, timeout=5)
             content_type = head_response.headers.get('Content-Type', '')
 
             if 'text/html' in content_type:
-                response = requests.get(url, timeout=5, stream=True)
+                response = requests.get(domain, timeout=5, stream=True)
                 response.raise_for_status()
                 content_chunk = response.iter_content(chunk_size=512)
                 first_chunk = next(content_chunk, b'').decode('utf-8', errors='ignore')
 
                 if first_chunk.strip():
-                    return detect(first_chunk)
+                    lang = detect(first_chunk)
+                    domains.update({domain: lang})
+                    return lang
                 else:
+                    domains.update({domain: 'unknown'})
                     return 'unknown'
             else:
+                domains.update({domain: 'unknown'})
                 return 'unknown'
         except (requests.exceptions.RequestException, LangDetectException):
+            domains.update({domain: 'unknown'})
             return 'unknown'
 
     sublinks['language'] = sublinks['sublinks'].apply(detect_language)
-    sublinks = sublinks[sublinks['language'] == 'en']
+    # sublinks = sublinks[sublinks['language'] == 'en']
+    # TODO FIX BUG language is always unkown
 
+
+def urlLength():
+    global sublinks
+    sublinks['length'] = sublinks['sublinks'].apply(len)
 
 
 def prepareDataFrame():
@@ -182,6 +197,7 @@ def prepareDataFrame():
     standardizeUrlWrapper()
     removeDuplicates()
     removeNonEnglishWebsites()
+    urlLength()
     extractURLcomponents()
     handleMissingValues()
     removeSpecialCharsAndStopWordsWrapper()
@@ -201,3 +217,4 @@ if __name__ == '__main__':
     # sublinks = pd.concat([sublinks, lastrows], ignore_index=True)
     prepareDataFrame()
     preprocessDataFrame()
+    print("--- %.2f seconds ---" % (time.time() - start_time))
