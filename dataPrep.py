@@ -150,15 +150,18 @@ def removeNonEnglishWebsites():
     print('## NOW RUNNING removeNonEnglishWebsites')
 
     def detect_language(url):
-        domain = urlparse(url).netloc
+        parsed_url = urlparse(url)
+        scheme = parsed_url.scheme
+        domain = parsed_url.netloc
+        clean_url = f'{scheme}://{domain}'
         try:
             if domain in domains.keys():
                 return domains.get(domain)
-            head_response = requests.head(domain, timeout=5)
+            head_response = requests.head(clean_url, timeout=5)
             content_type = head_response.headers.get('Content-Type', '')
 
             if 'text/html' in content_type:
-                response = requests.get(domain, timeout=5, stream=True)
+                response = requests.get(clean_url, timeout=5, stream=True)
                 response.raise_for_status()
                 content_chunk = response.iter_content(chunk_size=512)
                 first_chunk = next(content_chunk, b'').decode('utf-8', errors='ignore')
@@ -178,8 +181,7 @@ def removeNonEnglishWebsites():
             return 'unknown'
 
     sublinks['language'] = sublinks['sublinks'].apply(detect_language)
-    # sublinks = sublinks[sublinks['language'] == 'en']
-    # TODO FIX BUG language is always unkown
+    sublinks = sublinks[sublinks['language'] == 'en']
 
 
 def urlLength():
