@@ -99,7 +99,7 @@ def removeSpecialCharsAndStopWordsWrapper(column_names=('path', 'fragment')):
 
 def handleMissingValues():
     global sublinks
-    sublinks.fillna("None")
+    sublinks.fillna("None", inplace=True)
     for col in sublinks.columns[1:]:
         sublinks[col] = sublinks[col].replace("", "None")
 
@@ -193,12 +193,12 @@ def prepareDataFrame():
     global sublinks, stop_words_g
     stop_words_g = createStopWordsSet()
     makeLowerCase()
-    removeFiles()
     removeWWW()
     removeQuery()
     standardizeUrlWrapper()
     removeDuplicates()
     removeNonEnglishWebsites()
+    removeFiles()
     urlLength()
     extractURLcomponents()
     handleMissingValues()
