@@ -4,6 +4,13 @@ import numpy as np
 import seaborn as sns
 from collections import Counter
 from wordcloud import WordCloud
+import re
+
+pattern1 = re.compile(r'/collections/.*/products/[^/]+$')  # /collections/.../products/ followed by product name
+pattern5 = re.compile(r'/products/[^/]+')  # /products/ followed by product name
+pattern2 = re.compile(r'/product/[^/]+')  # /product/ followed by product name
+pattern3 = re.compile(r'/shop/[^/]+')  # /shop/ followed by product name
+pattern4 = re.compile(r'/merch/p/[^/]+')  # /merch/p/ followed by product name
 
 
 # extract words from url path
@@ -82,9 +89,49 @@ def handleMissingValues():
         df[col] = df[col].replace("", "None")
 
 
+def patternFrequency():
+    global df
+    conditions = [
+        df['sublinks'].str.contains(pattern1, regex=True),  # Pattern 1: /products/
+        df['sublinks'].str.contains(pattern2, regex=True),  # Pattern 2: /product/
+        df['sublinks'].str.contains(pattern3, regex=True),  # Pattern 3: /shop/
+        df['sublinks'].str.contains(pattern4, regex=True),  # Pattern 4: /merch/p/
+        df['sublinks'].str.contains(pattern5, regex=True)  # Pattern 5: /collections/.../products/
+    ]
+    choices = [
+        'Pattern 1: /collections/.../products/',
+        'Pattern 2: /product/',
+        'Pattern 3: /shop/',
+        'Pattern 4: /merch/p/',
+        'Pattern 5: /products/'
+    ]
+
+    df['pattern'] = np.select(conditions, choices, default='Other')
+    pattern_counts = df['pattern'].value_counts()
+    plt.figure(figsize=(10, 6))
+
+    sns.barplot(x=pattern_counts.index, y=pattern_counts.values, palette="viridis")
+
+    plt.title('URL Pattern Frequencies', fontsize=16)
+    plt.xlabel('URL Patterns', fontsize=12)
+    plt.ylabel('Frequency', fontsize=12)
+
+    # Rotate the x-axis labels for better readability
+    plt.xticks(rotation=45, ha='right')
+
+    for index, value in enumerate(pattern_counts.values):
+        plt.text(index, value, str(value), ha='center', va='bottom', fontsize=10)
+
+    # Show the plot
+    plt.tight_layout()
+    plt.savefig(fname=f'./pics/pattern_frequencies.png', format='png')
+    plt.show()
+
+
 if __name__ == '__main__':
-    df = pd.read_csv('../data/sublinks_components_depth7.csv')
+    df = pd.read_csv('./data/sublinks_components_depth7.csv')
     handleMissingValues()
     basicStats()
     wordAnalyzer()
     wordsInPathByDomain()
+    patternFrequency()
