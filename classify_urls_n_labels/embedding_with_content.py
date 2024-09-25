@@ -167,7 +167,7 @@ def cluster(n_clusters=10):
 if __name__ == '__main__':
     start_time = time.time()
     # sublinks = pd.read_csv('output/embeddings_stage2_10Clusters.csv')
-    sublinks = pd.read_pickle('output/embeddings_stage2.pkl')
+    sublinks = pd.read_pickle('../output/embeddings_stage2.pkl')
     # sublinks = sublinks.iloc[:300]
     extractMetadataParallelWrapper()
     handleMissingValues()

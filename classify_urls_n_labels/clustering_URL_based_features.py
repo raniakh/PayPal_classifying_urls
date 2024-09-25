@@ -187,7 +187,7 @@ def prepareDataFrame():
 
 
 if __name__ == '__main__':
-    sublinks = pd.read_csv('data/sublinks.csv')
+    sublinks = pd.read_csv('../data/sublinks.csv')
     stop_words_g = set()
     prepareDataFrame()
     sublinks = handleMissingValues(sublinks)

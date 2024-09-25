@@ -83,7 +83,7 @@ def handleMissingValues():
 
 
 if __name__ == '__main__':
-    df = pd.read_csv('data/sublinks_components_depth7.csv')
+    df = pd.read_csv('../data/sublinks_components_depth7.csv')
     handleMissingValues()
     basicStats()
     wordAnalyzer()

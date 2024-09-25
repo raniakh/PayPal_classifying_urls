@@ -59,7 +59,7 @@ def determine_page_type(url):
 
 
 if __name__ == '__main__':
-    sublinks = pd.read_csv('data/sublinks.csv')
+    sublinks = pd.read_csv('../data/sublinks.csv')
     sublinks = remove_www(sublinks)
     sublinks = standardize_url_wrapper(sublinks)
     sublinks['page_type'] = sublinks['sublinks'].apply(determine_page_type)

@@ -172,7 +172,7 @@ def plotClusters(df):
 
 if __name__ == '__main__':
     start_time = time.time()
-    sublinks = pd.read_csv('data/sublinks.csv')
+    sublinks = pd.read_csv('../data/sublinks.csv')
     sublinks = sublinks.iloc[:300]
     stop_words_g = set()
     prepareDataFrame()

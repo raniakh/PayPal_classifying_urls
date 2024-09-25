@@ -213,7 +213,7 @@ def preprocessDataFrame():
 
 if __name__ == '__main__':
     start_time = time.time()
-    sublinks = pd.read_csv('data/sublinks_depth7.csv')
+    sublinks = pd.read_csv('../data/sublinks_depth7.csv')
     # lastrows = sublinks.iloc[-50:]
     # sublinks = sublinks.iloc[:30]
     # sublinks = pd.concat([sublinks, lastrows], ignore_index=True)
