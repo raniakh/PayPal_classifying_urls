@@ -25,8 +25,8 @@ pattern = re.compile(
     r'/search/*$|/merch/*$|/donate/*|/faq/*|/forums/*|'
     r'/collections/*|/category/*|/product-category/*|/product-brands/*'
 )
-# TODO at least two keywords present in the html
-# TODO check if can see if attribute visible on page
+
+
 keywords = ['buy now', 'more payment options', 'buy with apple pay', 'pay now',
             'pay with paypal', 'buy with',
             'sold out', 'out of stock', 'in stock',
