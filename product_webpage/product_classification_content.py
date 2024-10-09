@@ -1,9 +1,3 @@
-# TODO take all pages that were classified NOT PRODUCT at the prev stage
-#  regex mark homepage, cart, contactus,
-#  login, contact, about us, privacy-policy,
-#  search, account and more as NOT PRODUCT.
-#  Extract content from the rest,
-#  if webpage has words "add to card" "buy now".. then Product Page
 import re
 import pandas as pd
 import aiohttp
@@ -13,6 +7,7 @@ import time
 from cachetools import cached, TTLCache
 from joblib import Parallel, delayed
 from multiprocessing import Manager
+from bs4 import BeautifulSoup
 
 # cache with 1000 max items and 10 minutes time-to-live
 cache = TTLCache(maxsize=1000, ttl=600)
@@ -27,19 +22,20 @@ pattern = re.compile(
     r'/aboutus/*$|/about-us/*|/about/*|'
     r'/index.php/*$|/home/*|'
     r'/blog/*|/blogs/*|/news/*|/our-brands/*$|'
-    r'/search/*$|/merch/*$|/donate/*|/fag/*|/forums/*|'
+    r'/search/*$|/merch/*$|/donate/*|/faq/*|/forums/*|'
     r'/collections/*|/category/*|/product-category/*|/product-brands/*'
 )
 # TODO at least two keywords present in the html
 # TODO check if can see if attribute visible on page
 keywords = ['buy now', 'more payment options', 'buy with apple pay', 'pay now',
             'pay with paypal', 'buy with',
+            'sold out', 'out of stock', 'in stock',
             'product description', 'product specifications', 'product information',
             'customer reviews', 'product reviews',
             'you may also like', 'related products', 'more from this collection', 'other products',
             'request a quote', 'view store information']
 # 'ratings', 'share product', 'reviews', 'sku', 'add to cart'
-# 'credit card', 'debit card', 'debit or credit card', 'sold out', 'out of stock', 'in stock',
+# 'credit card', 'debit card', 'debit or credit card',
 
 headers = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) '
@@ -82,6 +78,18 @@ class URLProcessor:
             print(f"Error fetching {url}: {str(e)}")
             return ''
 
+    def extractVisibleText(self, html_content):
+        soup = BeautifulSoup(html_content, 'html.parser')
+
+        for script_or_style in soup(['script', 'style']):
+            script_or_style.extract()
+
+        for hidden in soup.select('[style*="display:none"], [style*="visibility:hidden"]'):
+            hidden.extract()
+
+        visible_text = soup.get_text(separator=' ')
+        return ' '.join(visible_text.split())
+
     # Extract webpage content and classify based on bag of words
     async def extractAndClassify_async(self, chunk):
         async with aiohttp.ClientSession() as session:
@@ -89,8 +97,11 @@ class URLProcessor:
             contents = await asyncio.gather(*tasks)
 
             for i, content in enumerate(contents):
-                if any(key_word in content.lower() for key_word in keywords):
-                    chunk.iloc[i, chunk.columns.get_loc('Product Page')] = 1
+                if content:
+                    visible_text = self.extractVisibleText(content)
+                    keyword_matches = [key_word for key_word in keywords if key_word in visible_text.lower()]
+                    if len(keyword_matches) >= 2:
+                        chunk.iloc[i, chunk.columns.get_loc('Product Page')] = 1
 
         return chunk
 
