@@ -105,7 +105,6 @@ class URLProcessor:
             return ''
         except Exception as e:
             print(f"Error fetching {url}: {str(e)}")
-            print(f"Error fetching {url}: {str(e)}")
             self.exception_counters['other_error'] += 1
             return ''
 
