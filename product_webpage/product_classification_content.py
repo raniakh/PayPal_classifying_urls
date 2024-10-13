@@ -4,7 +4,9 @@ import aiohttp
 import asyncio
 from urllib.parse import urlparse
 import time
+import matplotlib.pyplot as plt
 from cachetools import cached, TTLCache
+from collections import defaultdict
 from joblib import Parallel, delayed
 from multiprocessing import Manager
 from bs4 import BeautifulSoup
@@ -44,8 +46,8 @@ headers = {
 
 
 class URLProcessor:
-    def __init__(self, timeout_counter):
-        self.timeout_counter = timeout_counter
+    def __init__(self, exception_counters):
+        self.exception_counters = exception_counters  # dictionary { exception-name: count}
 
     def matchRegex(self, chunk):
         chunk['regex_match'] = chunk['sublinks'].str.contains(pattern)
@@ -66,29 +68,52 @@ class URLProcessor:
         try:
             async with session.get(url, headers=headers, timeout=120) as response:
                 if response.status == 200:
-                    return await response.text()
+                    if 'txt/html' in response.headers.get('Content-Type', ''):
+                        return await response.text()
+                    else:
+                        self.exception_counters['content_type_mismatch'] += 1
+                        return ''
                 else:
+                    self.exception_counters['failed_status_code'] += 1
                     print(f"Failed to fetch {url}, statuse Code: {response.status}")
                     return ''
         except asyncio.TimeoutError:
             print(f"Timeout fetching {url}")
-            self.timeout_counter.value += 1
+            self.exception_counters['timeout_error'] += 1
+            return ''
+        except aiohttp.ClientConnectionError:
+            print(f"Connection error fetching {url}")
+            self.exception_counters['connection_error'] += 1
+            return ''
+        except aiohttp.InvalidURL:
+            print(f"Invalid URL: {url}")
+            self.exception_counters['invalid_url_error'] += 1
+            return ''
+        except UnicodeDecodeError:
+            print(f"Encoding error fetching {url}")
+            self.exception_counters['encoding_error'] += 1
             return ''
         except Exception as e:
             print(f"Error fetching {url}: {str(e)}")
+            self.exception_counters['other_error'] += 1
             return ''
 
     def extractVisibleText(self, html_content):
-        soup = BeautifulSoup(html_content, 'html.parser')
+        try:
+            soup = BeautifulSoup(html_content, 'html.parser')
 
-        for script_or_style in soup(['script', 'style']):
-            script_or_style.extract()
+            for script_or_style in soup(['script', 'style']):
+                script_or_style.extract()
 
-        for hidden in soup.select('[style*="display:none"], [style*="visibility:hidden"]'):
-            hidden.extract()
+            for hidden in soup.select('[style*="display:none"], [style*="visibility:hidden"]'):
+                hidden.extract()
 
-        visible_text = soup.get_text(separator=' ')
-        return ' '.join(visible_text.split())
+            visible_text = soup.get_text(separator=' ')
+            return ' '.join(visible_text.split())
+        except Exception as e:
+            print(f"Error parsing HTML: {str(e)}")
+            self.exception_counters['html_parsing_error'] += 1
+            return ''
 
     # Extract webpage content and classify based on bag of words
     async def extractAndClassify_async(self, chunk):
@@ -131,11 +156,25 @@ def chunkDataframe(df, chunk_size):
 
 
 def processDataFrameInChunks(df, chunk_size=1000, n_jobs=-1, processor=None):
+    exception_counters = defaultdict(int)
     chunks = list(chunkDataframe(df, chunk_size))
     # Process chunks in parallel
-    results = Parallel(n_jobs=n_jobs)(delayed(processor.processChunk)(chunk) for chunk in chunks)
+    results = Parallel(n_jobs=n_jobs)(delayed(processor.processChunk)(chunk, exception_counters) for chunk in chunks)
 
-    return pd.concat(results)
+    return pd.concat(results), exception_counters
+
+
+def plot_exception_histogram(exception_counters_):
+    exception_names = list(exception_counters_.keys())
+    exception_counts = list(exception_counters_.values())
+
+    plt.bar(exception_names, exception_counts)
+    plt.xticks(rotation=45, ha="right")
+    plt.xlabel('Exception Types')
+    plt.ylabel('Frequency')
+    plt.title('Histogram of Exceptions')
+    plt.tight_layout()
+    plt.show()
 
 
 if __name__ == '__main__':
@@ -145,11 +184,13 @@ if __name__ == '__main__':
     data_filtered = data[data['Product Page'] == 0].copy()
 
     with Manager() as manager:
-        timeout_counter = manager.Value('i', 0)
-        processor = URLProcessor(timeout_counter)
+        exception_counters = manager.dict(defaultdict(int))
+        processor = URLProcessor(exception_counters)
 
-        data_processed = processDataFrameInChunks(df=data_filtered, processor=processor)
-        print(f"time out count: {processor.getTimeOutCount()}")
+        data_processed, exception_counters = processDataFrameInChunks(df=data_filtered, processor=processor)
+        print("Exception Counts:", dict(exception_counters))
         print("--- %.2f seconds ---" % (time.time() - start_time))
 
         data_processed.to_csv('../output/productpage_classification_content_based.csv', index=False)
+
+        plot_exception_histogram(dict(exception_counters))
