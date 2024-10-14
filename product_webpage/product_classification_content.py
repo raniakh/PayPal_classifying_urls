@@ -68,7 +68,7 @@ class URLProcessor:
         try:
             async with session.get(url, headers=headers, timeout=120) as response:
                 if response.status == 200:
-                    if 'txt/html' in response.headers.get('Content-Type', ''):
+                    if 'text/html' in response.headers.get('Content-Type', ''):
                         return await response.text()
                     else:
                         self.exception_counters['content_type_mismatch'] += 1
@@ -145,9 +145,6 @@ class URLProcessor:
 
         chunk.update(filtered_chunk)
         return chunk
-
-    def getTimeOutCount(self):
-        return self.timeout_counter.value
 
 
 def chunkDataframe(df, chunk_size):
