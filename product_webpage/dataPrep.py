@@ -1,21 +1,24 @@
+import os
 from urllib.parse import urlparse, urlunparse
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
 from nltk.stem import WordNetLemmatizer
-import matplotlib.pyplot as plt
-import gensim.downloader as api
-from sklearn.manifold import TSNE
-from sklearn.metrics.pairwise import cosine_similarity
-from sklearn.cluster import KMeans
+# import matplotlib.pyplot as plt
+# import gensim.downloader as api
+# from sklearn.manifold import TSNE
+# from sklearn.metrics.pairwise import cosine_similarity
+# from sklearn.cluster import KMeans
 from langdetect import detect, DetectorFactory
 from langdetect.lang_detect_exception import LangDetectException
-import nltk
+# import nltk
 import re
 import requests
-import numpy as np
+from requests.exceptions import RequestException
+from bs4 import BeautifulSoup
+# import numpy as np
 import pandas as pd
 import time
-
+from datetime import datetime
 
 ####
 # DATA FRAME PREP FILE
@@ -24,9 +27,14 @@ import time
 # nltk.download('punkt')
 # nltk.download('stopwords')
 # nltk.download('wordnet')
+headers = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) '
+                  'Chrome/91.0.4472.124 Safari/537.36'
+}
 
 
 def makeLowerCase(column_name='sublinks'):
+    print('## NOW RUNNING makeLowerCase')
     global sublinks
 
     def lowerCase(txt):
@@ -36,11 +44,13 @@ def makeLowerCase(column_name='sublinks'):
 
 
 def removeWWW(column_name='sublinks'):
+    print('## NOW RUNNING removeWWW')
     global sublinks
     sublinks[column_name] = sublinks[column_name].str.replace('www.', '', regex=False)
 
 
 def standardizeUrlWrapper(column_name='sublinks'):
+    print('## NOW RUNNING standardizeUrlWrapper')
     global sublinks
 
     def standardize_url(url):
@@ -56,6 +66,7 @@ def standardizeUrlWrapper(column_name='sublinks'):
 
 
 def extractURLcomponents(inputcol='sublinks'):
+    print('## NOW RUNNING extractURLcomponents')
     global sublinks
     sublinks['domain'] = sublinks[inputcol].apply(lambda x: urlparse(x).netloc)
     sublinks['path'] = sublinks[inputcol].apply(lambda x: urlparse(x).path)
@@ -65,6 +76,7 @@ def extractURLcomponents(inputcol='sublinks'):
 
 
 def createStopWordsSet():
+    print('## NOW RUNNING createStopWordsSet')
     stop_words = set(stopwords.words('english'))
     url_top_words = ["pdf", "html"]  # TODO: check for more stop words - analysis
     stop_words.update(url_top_words)
@@ -86,6 +98,8 @@ def tokenizeTxt(txt):
 
 
 def removeSpecialCharsAndStopWordsWrapper(column_names=('path', 'fragment')):
+    print('## NOW RUNNING removeSpecialCharsAndStopWordsWrapper')
+
     def removeStopWords(txt):
         words = txt.split()
         filtered_words = [word for word in words if word not in stop_words_g and len(word) > 1]
@@ -98,6 +112,7 @@ def removeSpecialCharsAndStopWordsWrapper(column_names=('path', 'fragment')):
 
 
 def handleMissingValues():
+    print('## NOW RUNNING handleMissingValues')
     global sublinks
     sublinks.fillna("None", inplace=True)
     for col in sublinks.columns[1:]:
@@ -107,6 +122,7 @@ def handleMissingValues():
 # URLS were crawled with query part - remove them
 # TODO next crawl do not save the query part of the url.
 def removeQuery():
+    print('## NOW RUNNING removeQuery')
     global sublinks
 
     def remove_query(url):
@@ -118,18 +134,23 @@ def removeQuery():
 
 
 def removeDuplicates():
+    print('## NOW RUNNING removeDuplicates')
     global sublinks
 
     sublinks = sublinks.drop_duplicates(subset='sublinks', keep='first').copy()
 
 
 def removeFiles():
+    print('## NOW RUNNING removeFiles')
     global sublinks
     file_extensions = ('.jpg', '.jpeg', '.png', '.pdf', '.gif', '.bmp', '.tiff')
+    file_extensions2 = ('.jpg/', '.jpeg/', '.png/', '.pdf/', '.gif/', '.bmp/', '.tiff/')
     sublinks = sublinks[~sublinks['sublinks'].str.endswith(file_extensions)]
+    sublinks = sublinks[~sublinks['sublinks'].str.endswith(file_extensions2)]
 
 
 def lemmatizeTxt():
+    print('## NOW RUNNING lemmatizeTxt')
     global sublinks
     wnl = WordNetLemmatizer()
 
@@ -142,6 +163,29 @@ def lemmatizeTxt():
 
     for col in sublinks.columns[3:]:
         sublinks[col] = sublinks[col].apply(preprocess_txt)
+
+
+def fetch_sample_text_for_lang_detect(url, max_length=500):
+    try:
+        response = requests.get(url=url, headers=headers)
+        response.raise_for_status()
+        soup = BeautifulSoup(response.content, 'html.parser')
+        for script_or_style in soup(['script', 'style', 'meta', 'link']):
+            script_or_style.decompose()
+        for hidden in soup.select('[style*="display:none"], [style*="visibility:hidden"]'):
+            hidden.extract()
+        visible_text = soup.get_text(separator=' ', strip=True)
+        sample_text = ' '.join(visible_text.split())[:max_length]
+        if not sample_text:
+            print(f'No visible text found on the page, {url}')
+            return ' '
+        return sample_text
+
+    except RequestException as e:
+        print(f"Error fetching the webpage: {e}, url={url}")
+        return ''
+    except Exception as e:
+        print(f"Error processing the webpage content: {e}, url={url}")
 
 
 def removeNonEnglishWebsites():
@@ -157,28 +201,47 @@ def removeNonEnglishWebsites():
         try:
             if domain in domains.keys():
                 return domains.get(domain)
-            head_response = requests.head(clean_url, timeout=5)
-            content_type = head_response.headers.get('Content-Type', '')
+            if (domain == 'sinnstein.com' or domain == 'lion-spirits.de' or
+                    domain == 'orchardvalleysupply.com' or domain == 'bandabags.com'):
+                print('DEBUG POINT')
+            head_response = requests.head(clean_url, timeout=15)
+            # content_type = head_response.headers.get('Content-Type', '')
+            lang = head_response.headers.get('content-language')
+            if lang:
+                domains.update({domain: lang[:2]})
+                return lang[:2]
 
-            if 'text/html' in content_type:
-                response = requests.get(clean_url, timeout=5, stream=True)
-                response.raise_for_status()
-                content_chunk = response.iter_content(chunk_size=512)
-                first_chunk = next(content_chunk, b'').decode('utf-8', errors='ignore')
-
-                if first_chunk.strip():
-                    lang = detect(first_chunk)
-                    domains.update({domain: lang})
-                    return lang
-                else:
-                    domains.update({domain: 'unknown'})
-                    return 'unknown'
-            else:
+            sample_text = fetch_sample_text_for_lang_detect(clean_url)
+            if not sample_text:
                 domains.update({domain: 'unknown'})
                 return 'unknown'
-        except (requests.exceptions.RequestException, LangDetectException):
-            domains.update({domain: 'unknown'})
+            else:
+                lang = detect(sample_text)
+                domains.update({domain: lang[:2]})
+                return lang
+        except LangDetectException as e:
+            print(f"Error detecting the language: {e}, {url}")
             return 'unknown'
+
+        #     if 'text/html' in content_type:
+        #         response = requests.get(clean_url, timeout=5, stream=True)
+        #         response.raise_for_status()
+        #         content_chunk = response.iter_content(chunk_size=1024)
+        #         first_chunk = next(content_chunk, b'').decode('utf-8', errors='ignore')
+        #
+        #         if first_chunk.strip():
+        #             lang = detect(first_chunk)
+        #             domains.update({domain: lang})
+        #             return lang
+        #         else:
+        #             domains.update({domain: 'unknown'})
+        #             return 'unknown'
+        #     else:
+        #         domains.update({domain: 'unknown'})
+        #         return 'unknown'
+        # except (requests.exceptions.RequestException, LangDetectException):
+        #     domains.update({domain: 'unknown'})
+        #     return 'unknown'
 
     sublinks['language'] = sublinks['sublinks'].apply(detect_language)
     sublinks = sublinks[sublinks['language'] == 'en']
@@ -208,15 +271,21 @@ def prepareDataFrame():
 
 def preprocessDataFrame():
     lemmatizeTxt()
-    sublinks.to_csv('data/sublinks_components_depth7.csv', index=False)
+    current_time = str(datetime.now().strftime("%Y-%m-%d %H-%M"))
+    print('## SAVING RESULTS..')
+    sublinks.to_parquet(f'data/parquet_output/sublinks_depth7_{current_time}.parquet', index=False)
+    sublinks.to_csv(f'data/parquet_output/sublinks_depth7_{current_time}.csv', index=False)
 
 
 if __name__ == '__main__':
     start_time = time.time()
-    sublinks = pd.read_csv('../data/sublinks_depth7.csv')
-    # lastrows = sublinks.iloc[-50:]
-    # sublinks = sublinks.iloc[:30]
-    # sublinks = pd.concat([sublinks, lastrows], ignore_index=True)
+    sublinks = pd.read_csv('./data/sublinks_depth7.csv')
+
+    # parquet_folder_path = './data/parquet'
+    # parquet_files = [f for f in os.listdir(parquet_folder_path) if f.endswith('.parquet')]
+    # dataframes = [pd.read_parquet(os.path.join(parquet_folder_path, file)) for file in parquet_files]
+    # sublinks = pd.concat(dataframes, ignore_index=True)
+
     prepareDataFrame()
     preprocessDataFrame()
     print("--- %.2f seconds ---" % (time.time() - start_time))
