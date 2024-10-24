@@ -2,6 +2,7 @@ import pandas as pd
 import re
 import numpy as np
 from multiprocessing import Pool, cpu_count
+from datetime import datetime
 
 pattern = re.compile(
     r'/products/[^/]+|'
@@ -34,6 +35,12 @@ def parallelize_dataframe(df, func, num_partitions=None):
 
 if __name__ == '__main__':
     data = pd.read_csv('../data/sublinks_components_depth7.csv')
+    # data = pd.read_parquet('../data/parquet_output/sublinks_depth7_2024-10-14 16-43.parquet')
 
     df_parallel = parallelize_dataframe(df=data, func=classify_chunk)
-    df_parallel.to_csv('../output/productpage_classification_based_regex.csv', index=False)
+    current_time = str(datetime.now().strftime("%Y-%m-%d %H-%M"))
+    df_parallel.to_csv(f'../output/productpage_classification_based_regex_dataset1_{current_time}.csv', index=False)
+
+    # print('## SAVING RESULTS..')
+    # df_parallel.to_parquet(f'../output/parquet/sublinks_classification_based_regex_{current_time}.parquet', index=False)
+    # df_parallel.to_csv(f'../output/parquet/sublinks_classification_based_regex_{current_time}.csv', index=False)
