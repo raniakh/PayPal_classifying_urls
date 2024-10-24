@@ -1,4 +1,6 @@
 import re
+from datetime import datetime
+
 import pandas as pd
 import aiohttp
 import asyncio
@@ -71,31 +73,31 @@ class URLProcessor:
                     if 'text/html' in response.headers.get('Content-Type', ''):
                         return await response.text()
                     else:
-                        self.exception_counters['content_type_mismatch'] += 1
+                        self._increment_exception_counter('content_type_mismatch')
                         return ''
                 else:
-                    self.exception_counters['failed_status_code'] += 1
+                    self._increment_exception_counter('failed_status_code')
                     print(f"Failed to fetch {url}, statuse Code: {response.status}")
                     return ''
         except asyncio.TimeoutError:
             print(f"Timeout fetching {url}")
-            self.exception_counters['timeout_error'] += 1
+            self._increment_exception_counter('timeout_error')
             return ''
         except aiohttp.ClientConnectionError:
             print(f"Connection error fetching {url}")
-            self.exception_counters['connection_error'] += 1
+            self._increment_exception_counter('connection_error')
             return ''
         except aiohttp.InvalidURL:
             print(f"Invalid URL: {url}")
-            self.exception_counters['invalid_url_error'] += 1
+            self._increment_exception_counter('invalid_url_error')
             return ''
         except UnicodeDecodeError:
             print(f"Encoding error fetching {url}")
-            self.exception_counters['encoding_error'] += 1
+            self._increment_exception_counter('encoding_error')
             return ''
         except Exception as e:
             print(f"Error fetching {url}: {str(e)}")
-            self.exception_counters['other_error'] += 1
+            self._increment_exception_counter('other_error')
             return ''
 
     def extractVisibleText(self, html_content):
@@ -112,7 +114,7 @@ class URLProcessor:
             return ' '.join(visible_text.split())
         except Exception as e:
             print(f"Error parsing HTML: {str(e)}")
-            self.exception_counters['html_parsing_error'] += 1
+            self._increment_exception_counter('html_parsing_error')
             return ''
 
     # Extract webpage content and classify based on bag of words
@@ -146,6 +148,12 @@ class URLProcessor:
         chunk.update(filtered_chunk)
         return chunk
 
+    def _increment_exception_counter(self, exception_type):
+        """Helper method to safely increment exception counter."""
+        if exception_type not in self.exception_counters:
+            self.exception_counters[exception_type] = 0
+        self.exception_counters[exception_type] += 1
+
 
 def chunkDataframe(df, chunk_size):
     for start in range(0, df.shape[0], chunk_size):
@@ -153,12 +161,11 @@ def chunkDataframe(df, chunk_size):
 
 
 def processDataFrameInChunks(df, chunk_size=1000, n_jobs=-1, processor=None):
-    exception_counters = defaultdict(int)
     chunks = list(chunkDataframe(df, chunk_size))
     # Process chunks in parallel
-    results = Parallel(n_jobs=n_jobs)(delayed(processor.processChunk)(chunk, exception_counters) for chunk in chunks)
+    results = Parallel(n_jobs=n_jobs)(delayed(processor.processChunk)(chunk) for chunk in chunks)
 
-    return pd.concat(results), exception_counters
+    return pd.concat(results)
 
 
 def plot_exception_histogram(exception_counters_):
@@ -177,17 +184,21 @@ def plot_exception_histogram(exception_counters_):
 if __name__ == '__main__':
     start_time = time.time()
 
-    data = pd.read_csv('../output/productpage_classification_based_regex.csv')
+    data = pd.read_csv('../output/productpage_classification_based_regex_dataset1_2024-10-16 18-25.csv')
     data_filtered = data[data['Product Page'] == 0].copy()
-
+    data_productPages_stage2 = data[data['Product Page'] == 1].copy()
+    current_time = str(datetime.now().strftime("%Y-%m-%d %H-%M"))
     with Manager() as manager:
         exception_counters = manager.dict(defaultdict(int))
         processor = URLProcessor(exception_counters)
 
-        data_processed, exception_counters = processDataFrameInChunks(df=data_filtered, processor=processor)
+        data_processed = processDataFrameInChunks(df=data_filtered, processor=processor)
         print("Exception Counts:", dict(exception_counters))
         print("--- %.2f seconds ---" % (time.time() - start_time))
-
-        data_processed.to_csv('../output/productpage_classification_content_based.csv', index=False)
+        data_processed.to_csv(f'../output/productpage_classification_content_based_dataset1_{current_time}.csv',
+                          index=False)
+        data_final = pd.concat([data_processed, data_productPages_stage2], ignore_index=True)
+        data_final.to_csv(f'../output/productpage_classification_content_based_dataset1_combined_{current_time}.csv',
+                          index=False)
 
         plot_exception_histogram(dict(exception_counters))
