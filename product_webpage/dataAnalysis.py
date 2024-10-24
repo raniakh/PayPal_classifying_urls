@@ -15,6 +15,7 @@ pattern4 = re.compile(r'/merch/p/[^/]+')  # /merch/p/ followed by product name
 
 # extract words from url path
 def wordAnalyzer(col='path'):
+    print('## NOW RUNNING wordAnalyzer')
     global df
     col_name = col + '_tokens'
     df[col_name] = (df[col].astype(str)).apply(lambda x: x.split())
@@ -39,6 +40,7 @@ def wordAnalyzer(col='path'):
 
 
 def basicStats():
+    print('## NOW RUNNING basicStats')
     global df
     with pd.option_context('display.max_columns', 10):
         print('### df.describe ###')
@@ -52,11 +54,13 @@ def basicStats():
 
 
 def tokenize_path(path):
+    print('## NOW RUNNING tokenize_path')
     print(f'tokenize_path({path})')
     return path.split()
 
 
 def wordsInPathByDomain():
+    print('## NOW RUNNING wordsInPathByDomain')
     global df
     grouped_by_domain = df.groupby('domain')
     for domain, group in grouped_by_domain:
@@ -69,7 +73,7 @@ def wordsInPathByDomain():
         plt.imshow(wordcloud, interpolation='bilinear')
         plt.axis('off')
         plt.title(f"Word Cloud for domain: {domain}")
-        plt.savefig(fname=f'pics/bydomain/wordCloud domain {domain}.png', format='png')
+        plt.savefig(fname=f'pics/parquet/bydomain/wordCloud domain {domain}.png', format='png')
 
         most_common_words = word_counts.most_common(10)
         words, counts = zip(*most_common_words)
@@ -79,10 +83,11 @@ def wordsInPathByDomain():
         plt.title(f"Top 10 Most Common Words in Path for domain: {domain}")
         plt.xticks(rotation=45)
         plt.ylabel('Frequency')
-        plt.savefig(fname=f'pics/bydomain/barPlot domain {domain}.png', format='png')
+        plt.savefig(fname=f'pics/parquet/bydomain/barPlot domain {domain}.png', format='png')
 
 
 def handleMissingValues():
+    print('## NOW RUNNING handleMissingValues')
     global df
     df.fillna("None", inplace=True)
     for col in df.columns[1:]:
@@ -90,6 +95,7 @@ def handleMissingValues():
 
 
 def patternFrequency():
+    print('## NOW RUNNING patternFrequency')
     global df
     conditions = [
         df['sublinks'].str.contains(pattern1, regex=True),  # Pattern 1: /products/
@@ -124,12 +130,13 @@ def patternFrequency():
 
     # Show the plot
     plt.tight_layout()
-    plt.savefig(fname=f'./pics/pattern_frequencies.png', format='png')
+    plt.savefig(fname=f'./pics/parquet/pattern_frequencies.png', format='png')
     plt.show()
 
 
 if __name__ == '__main__':
-    df = pd.read_csv('./data/sublinks_components_depth7.csv')
+    # df = pd.read_csv('./data/sublinks_components_depth7.csv')
+    df = pd.read_parquet('./data/parquet_output/sublinks_depth7_2024-10-14 16-43.parquet')
     handleMissingValues()
     basicStats()
     wordAnalyzer()
