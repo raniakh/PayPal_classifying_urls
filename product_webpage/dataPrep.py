@@ -3,19 +3,13 @@ from urllib.parse import urlparse, urlunparse
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
 from nltk.stem import WordNetLemmatizer
-# import matplotlib.pyplot as plt
-# import gensim.downloader as api
-# from sklearn.manifold import TSNE
-# from sklearn.metrics.pairwise import cosine_similarity
-# from sklearn.cluster import KMeans
-from langdetect import detect, DetectorFactory
+from langdetect import detect
 from langdetect.lang_detect_exception import LangDetectException
 # import nltk
 import re
 import requests
 from requests.exceptions import RequestException
 from bs4 import BeautifulSoup
-# import numpy as np
 import pandas as pd
 import time
 from datetime import datetime
@@ -78,7 +72,7 @@ def extractURLcomponents(inputcol='sublinks'):
 def createStopWordsSet():
     print('## NOW RUNNING createStopWordsSet')
     stop_words = set(stopwords.words('english'))
-    url_top_words = ["pdf", "html"]  # TODO: check for more stop words - analysis
+    url_top_words = ["pdf", "html"]
     stop_words.update(url_top_words)
     # Note: the word "about" was removed from nltk stop words file.
     return stop_words
@@ -119,8 +113,6 @@ def handleMissingValues():
         sublinks[col] = sublinks[col].replace("", "None")
 
 
-# URLS were crawled with query part - remove them
-# TODO next crawl do not save the query part of the url.
 def removeQuery():
     print('## NOW RUNNING removeQuery')
     global sublinks
@@ -143,10 +135,9 @@ def removeDuplicates():
 def removeFiles():
     print('## NOW RUNNING removeFiles')
     global sublinks
-    file_extensions = ('.jpg', '.jpeg', '.png', '.pdf', '.gif', '.bmp', '.tiff')
-    file_extensions2 = ('.jpg/', '.jpeg/', '.png/', '.pdf/', '.gif/', '.bmp/', '.tiff/')
+    file_extensions = ('.jpg', '.jpeg', '.png', '.pdf', '.gif', '.bmp', '.tiff',
+                       '.jpg/', '.jpeg/', '.png/', '.pdf/', '.gif/', '.bmp/', '.tiff/')
     sublinks = sublinks[~sublinks['sublinks'].str.endswith(file_extensions)]
-    sublinks = sublinks[~sublinks['sublinks'].str.endswith(file_extensions2)]
 
 
 def lemmatizeTxt():
@@ -201,11 +192,7 @@ def removeNonEnglishWebsites():
         try:
             if domain in domains.keys():
                 return domains.get(domain)
-            if (domain == 'sinnstein.com' or domain == 'lion-spirits.de' or
-                    domain == 'orchardvalleysupply.com' or domain == 'bandabags.com'):
-                print('DEBUG POINT')
             head_response = requests.head(clean_url, timeout=15)
-            # content_type = head_response.headers.get('Content-Type', '')
             lang = head_response.headers.get('content-language')
             if lang:
                 domains.update({domain: lang[:2]})
@@ -222,26 +209,6 @@ def removeNonEnglishWebsites():
         except LangDetectException as e:
             print(f"Error detecting the language: {e}, {url}")
             return 'unknown'
-
-        #     if 'text/html' in content_type:
-        #         response = requests.get(clean_url, timeout=5, stream=True)
-        #         response.raise_for_status()
-        #         content_chunk = response.iter_content(chunk_size=1024)
-        #         first_chunk = next(content_chunk, b'').decode('utf-8', errors='ignore')
-        #
-        #         if first_chunk.strip():
-        #             lang = detect(first_chunk)
-        #             domains.update({domain: lang})
-        #             return lang
-        #         else:
-        #             domains.update({domain: 'unknown'})
-        #             return 'unknown'
-        #     else:
-        #         domains.update({domain: 'unknown'})
-        #         return 'unknown'
-        # except (requests.exceptions.RequestException, LangDetectException):
-        #     domains.update({domain: 'unknown'})
-        #     return 'unknown'
 
     sublinks['language'] = sublinks['sublinks'].apply(detect_language)
     sublinks = sublinks[sublinks['language'] == 'en']
@@ -260,8 +227,8 @@ def prepareDataFrame():
     removeQuery()
     standardizeUrlWrapper()
     removeDuplicates()
-    removeNonEnglishWebsites()
     removeFiles()
+    removeNonEnglishWebsites()
     urlLength()
     extractURLcomponents()
     handleMissingValues()
@@ -279,12 +246,11 @@ def preprocessDataFrame():
 
 if __name__ == '__main__':
     start_time = time.time()
-    sublinks = pd.read_csv('./data/sublinks_depth7.csv')
 
-    # parquet_folder_path = './data/parquet'
-    # parquet_files = [f for f in os.listdir(parquet_folder_path) if f.endswith('.parquet')]
-    # dataframes = [pd.read_parquet(os.path.join(parquet_folder_path, file)) for file in parquet_files]
-    # sublinks = pd.concat(dataframes, ignore_index=True)
+    parquet_folder_path = './data/parquet'
+    parquet_files = [f for f in os.listdir(parquet_folder_path) if f.endswith('.parquet')]
+    dataframes = [pd.read_parquet(os.path.join(parquet_folder_path, file)) for file in parquet_files]
+    sublinks = pd.concat(dataframes, ignore_index=True)
 
     prepareDataFrame()
     preprocessDataFrame()
