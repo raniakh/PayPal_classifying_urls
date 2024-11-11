@@ -122,21 +122,18 @@ def patternFrequency():
     plt.xlabel('URL Patterns', fontsize=12)
     plt.ylabel('Frequency', fontsize=12)
 
-    # Rotate the x-axis labels for better readability
     plt.xticks(rotation=45, ha='right')
 
     for index, value in enumerate(pattern_counts.values):
         plt.text(index, value, str(value), ha='center', va='bottom', fontsize=10)
 
-    # Show the plot
     plt.tight_layout()
     plt.savefig(fname=f'./pics/parquet/pattern_frequencies.png', format='png')
     plt.show()
 
 
 if __name__ == '__main__':
-    # df = pd.read_csv('./data/sublinks_components_depth7.csv')
-    df = pd.read_parquet('./data/parquet_output/sublinks_depth7_2024-10-14 16-43.parquet')
+    df = pd.read_parquet('./data/parquet_output/sublinks_depth7_2024-10-28 16-15.parquet')
     handleMissingValues()
     basicStats()
     wordAnalyzer()
