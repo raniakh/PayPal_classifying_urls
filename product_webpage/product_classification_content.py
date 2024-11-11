@@ -162,7 +162,6 @@ def chunkDataframe(df, chunk_size):
 
 def processDataFrameInChunks(df, chunk_size=1000, n_jobs=-1, processor=None):
     chunks = list(chunkDataframe(df, chunk_size))
-    # Process chunks in parallel
     results = Parallel(n_jobs=n_jobs)(delayed(processor.processChunk)(chunk) for chunk in chunks)
 
     return pd.concat(results)
@@ -184,21 +183,24 @@ def plot_exception_histogram(exception_counters_):
 if __name__ == '__main__':
     start_time = time.time()
 
-    data = pd.read_csv('../output/productpage_classification_based_regex_dataset1_2024-10-16 18-25.csv')
-    data_filtered = data[data['Product Page'] == 0].copy()
-    data_productPages_stage2 = data[data['Product Page'] == 1].copy()
+    data_to_classify = pd.read_parquet('../data/parquet_output/sublinks_depth7_2024-10-28 16-15.parquet')
+    data_to_classify['Product Page'] = 0
+    # data_to_classify = pd.read_parquet('../output/product_classification_regex_time_2024-11-07 11-19_inputfile_sublinks_depth7_2024-10-28 16-15.parquet')
+    # product_page_df = data_to_classify[data_to_classify['Product Page'] == 1].copy()
+    # data_to_classify = data_to_classify[data_to_classify['Product Page'] != 1]
+
     current_time = str(datetime.now().strftime("%Y-%m-%d %H-%M"))
     with Manager() as manager:
         exception_counters = manager.dict(defaultdict(int))
         processor = URLProcessor(exception_counters)
 
-        data_processed = processDataFrameInChunks(df=data_filtered, processor=processor)
+        data_processed = processDataFrameInChunks(df=data_to_classify, processor=processor)
         print("Exception Counts:", dict(exception_counters))
         print("--- %.2f seconds ---" % (time.time() - start_time))
-        data_processed.to_csv(f'../output/productpage_classification_content_based_dataset1_{current_time}.csv',
-                          index=False)
-        data_final = pd.concat([data_processed, data_productPages_stage2], ignore_index=True)
-        data_final.to_csv(f'../output/productpage_classification_content_based_dataset1_combined_{current_time}.csv',
-                          index=False)
 
+        data_processed.to_csv(
+            f'../output/product_classification_content_time_{current_time}_inputfile_nostage2.csv',
+            index=False)
+        # data_concat = pd.concat([data_processed, product_page_df], ignore_index=True)
+        # data_concat.to_csv(f'../output/product_classification_content_time_{current_time}_inputfile_stage2_concat2stages.csv', index=False)
         plot_exception_histogram(dict(exception_counters))
