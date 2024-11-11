@@ -34,13 +34,10 @@ def parallelize_dataframe(df, func, num_partitions=None):
 
 
 if __name__ == '__main__':
-    data = pd.read_csv('../data/sublinks_components_depth7.csv')
-    # data = pd.read_parquet('../data/parquet_output/sublinks_depth7_2024-10-14 16-43.parquet')
+    data = pd.read_parquet('../data/parquet_output/sublinks_depth7_2024-10-28 16-15.parquet')
 
     df_parallel = parallelize_dataframe(df=data, func=classify_chunk)
     current_time = str(datetime.now().strftime("%Y-%m-%d %H-%M"))
-    df_parallel.to_csv(f'../output/productpage_classification_based_regex_dataset1_{current_time}.csv', index=False)
-
-    # print('## SAVING RESULTS..')
-    # df_parallel.to_parquet(f'../output/parquet/sublinks_classification_based_regex_{current_time}.parquet', index=False)
-    # df_parallel.to_csv(f'../output/parquet/sublinks_classification_based_regex_{current_time}.csv', index=False)
+    print('## SAVING RESULTS..')
+    df_parallel.to_parquet(f'../output/product_classification_regex_time_{current_time}_inputfile_sublinks_depth7_2024-10-28 16-15.parquet', index=False)
+    df_parallel.to_csv(f'../output/product_classification_regex_time_{current_time}_inputfile_sublinks_depth7_2024-10-28 16-15.csv', index=False)
