@@ -19,14 +19,22 @@ import numpy as np
 from nltk import sent_tokenize
 from nltk.corpus import stopwords
 
-# TODO change input handling from csv to parquet
-# Classification is not accurate, accuracu = 0, neither k-nearest neighbors nor cosine similarity if sentences.
+# This Python Script was used for experimenting methods on a lighter dataset.
+# Methods explored:
+# 1. Embedding Product Webpages keywords, calculate average embedding of chunks of a webpage content
+# and then classify according to cosine similarity
+# 2. Embeddings Product Webpages related phrases, calculate average embedding of chunks of a webpage content
+# and then classify according to cosine similarity
+# 3. Divide the webpage content into sentences, and try to find the nearest neighbor from the phrase sentences.
+# Conclusion:
+# The methods did not succeed in classifying the product webpages with a sufficient accuracy.
+
 
 # cache with 1000 max items and 10 minutes time-to-live
 cache = TTLCache(maxsize=1000, ttl=600)
 
 # Load SBERT model
-model = SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2')  # paraphrase-MiniLM-L6-v2 all-MiniLM-L6-v2
+model = SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2')
 
 # Keywords to search for
 keywords = ['buy now', 'more payment options', 'buy with apple pay', 'pay now',
@@ -90,6 +98,7 @@ class URLProcessor:
 
     def detectHomepage(self, chunk):
         print('## NOW RUNNING detectHomepage')
+
         # Detect if the URL is a homepage or similar and mark as non-product page
         def isHomepage(url):
             parsed_url = urlparse(url)
@@ -168,8 +177,6 @@ class URLProcessor:
 
             for i, content in enumerate(contents):
                 if content:
-                    if 'globalmedicaldevices.co' in content:
-                        print('debug point')
                     visible_text = self.extractVisibleText(content)
                     visible_text = visible_text.lower()
                     visible_text = preprocessText(visible_text)
@@ -188,8 +195,8 @@ class URLProcessor:
                     # similarities = cosine_similarity([aggregated_embedding], keyword_embeddings)
                     # similarities = cosine_similarity([aggregated_embedding], product_phrase_embeddings)
                     ###
-                    similarities = [cosine_similarity([embedding], product_phrase_embeddings) for embedding in sentence_embeddings]
-
+                    similarities = [cosine_similarity([embedding], product_phrase_embeddings) for embedding in
+                                    sentence_embeddings]
 
                     # Apply early stopping if a highly similar sentence is found
                     max_similarity = np.max(similarities)
@@ -197,7 +204,7 @@ class URLProcessor:
                         chunk.iloc[i, chunk.columns.get_loc('Product Page')] = 1
                         continue
 
-                    if max_similarity > 0.65:  # TODO Tune the threshold
+                    if max_similarity > 0.65:
                         chunk.iloc[i, chunk.columns.get_loc('Product Page')] = 1
                     #########
                     # distances, indices = nearest_neighbors_model.kneighbors(sentence_embeddings)
@@ -226,7 +233,6 @@ class URLProcessor:
         if not filtered_chunk.empty:
             filtered_chunk = self.extractAndClassifyWrapper(filtered_chunk)
 
-        # Update the original chunk with the results
         chunk.update(filtered_chunk)
         return chunk
 
@@ -245,7 +251,6 @@ def chunkDataframe(df, chunk_size):
 def processDataFrameInChunks(df, chunk_size=1000, n_jobs=-1, processor=None):
     print('## NOW RUNNING processDataFrameInChunks')
     chunks = list(chunkDataframe(df, chunk_size))
-    # Process chunks in parallel
     results = Parallel(n_jobs=n_jobs)(delayed(processor.processChunk)(chunk) for chunk in chunks)
 
     return pd.concat(results)
@@ -303,6 +308,8 @@ if __name__ == '__main__':
         print("Exception Counts:", dict(exception_counters))
         print("--- %.2f seconds ---" % (time.time() - start_time))
         current_time = str(datetime.now().strftime("%Y-%m-%d %H-%M"))
-        data_processed.to_csv(f'../output/productpage_classification_content_embeddings_based_productPhraseEmbeddings_dataset1_{current_time}.csv', index=False)
+        data_processed.to_csv(
+            f'../output/productpage_classification_content_embeddings_based_productPhraseEmbeddings_dataset1_{current_time}.csv',
+            index=False)
 
         plot_exception_histogram(dict(exception_counters))
