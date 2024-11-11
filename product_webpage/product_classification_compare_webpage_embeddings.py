@@ -1,25 +1,18 @@
 import re
 import nltk
-import torch
-import tensorflow as tf
 from nltk.corpus import stopwords
 import numpy as np
 import pandas as pd
 from datetime import datetime
-from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.preprocessing import normalize
 import matplotlib.pyplot as plt
-import transformers
-from transformers import BertModel
 import requests
 from bs4 import BeautifulSoup, Comment
 import time
 from sentence_transformers import SentenceTransformer
 from cachetools import cached, TTLCache
-from urllib.parse import urlparse
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
-from requests.exceptions import RequestException, HTTPError
 
 pattern = re.compile(
     r'/cart/*|/checkout/*$|'
@@ -43,11 +36,10 @@ headers = {
 cache = TTLCache(maxsize=1000, ttl=600)
 nltk.download('punkt')
 executor = ThreadPoolExecutor(max_workers=10)
-model = SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2')  # paraphrase-MiniLM-L6-v2 all-MiniLM-L6-v2
+model = SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2')
 
 
-# Code summary: take product and non-product webpage from stage 2, embed them and use them to compare with new
-# embeddings
+# Code summary: take product webpages from stage 2, embed them and use them to compare with new embeddings
 
 
 def createStopWordsSet():
@@ -60,9 +52,6 @@ def createStopWordsSet():
 @cached(cache)
 def fetchVisibleContent(url):
     try:
-        netloc = urlparse(url).netloc
-        # if any(domain in netloc for domain in domains_not_retrieving_content):
-        #     print(f'BREAK POINT {url}')
         response = requests.get(url, timeout=90)
         response.raise_for_status()
         soup = BeautifulSoup(response.content, 'html.parser')
@@ -103,7 +92,6 @@ def fetchVisibleContent(url):
 
 def fetchVisibleContent_Wrapper(df):
     print('## NOW RUNNING fetchVisibleContent_Wrapper')
-    # data_filtered['Content'] = data_filtered['sublinks'].apply(fetchVisibleContent)
     df['Content'] = list(executor.map(fetchVisibleContent, df['sublinks']))
 
 
@@ -196,44 +184,51 @@ def sampleData(df):
     return sampled_data
 
 
+def plot_exception_histogram(exception_counters_):
+    exception_names = list(exception_counters_.keys())
+    exception_counts = list(exception_counters_.values())
+
+    plt.bar(exception_names, exception_counts)
+    plt.xticks(rotation=45, ha="right")
+    plt.xlabel('Exception Types')
+    plt.ylabel('Frequency')
+    plt.title('Histogram of Exceptions')
+    plt.tight_layout()
+    plt.show()
+
+
 if __name__ == '__main__':
     start_time = time.time()
     exception_counters = defaultdict(int)
 
-    classified_data = pd.read_csv('../output/productpage_classification_based_regex_dataset1_2024-10-16 18-25.csv')
+    classified_data = pd.read_csv(
+        '../stage2fileAsinput/productpage_classification_based_regex_dataset1_2024-10-16 18-25.csv')
     product_data = classified_data[classified_data['Product Page'] == 1].copy()
-
-    # TODO filter out only what's 100% non product page -
-    #   do i need to multiply with non-product??
-    # non_product_data = classified_data[classified_data['Product Page'] == 0].copy()
-    # non_product_data = non_product_data[:5]  # TODO DELETE - just for testing
 
     stop_words_set = createStopWordsSet()
     ps = nltk.stem.porter.PorterStemmer()
     lem = nltk.stem.wordnet.WordNetLemmatizer()
     # sample data by domain
     sampled_product = sampleData(df=product_data)
-    product_data = sampled_product  # TODO either do that in sampleData() or continue code with sampled_products
+    product_data = sampled_product
 
-    # fetch visible content for Product Webpages and Non-Product Webpages from dataset 1 stage 2
     fetchVisibleContent_Wrapper(df=product_data)
-    # fetchVisibleContent_Wrapper(df=non_product_data)
 
     product_data = product_data[product_data['Content'] != '']
-    # non_product_data = non_product_data[non_product_data['Content'] != '']
 
-    # preprocess webpage content of Product Webpages and Non-Product Webpages
     preprocessText_Wrapper(df=product_data)
-    # preprocessText_Wrapper(df=non_product_data)
 
     generateAverageEmbedding_Wrapper(df=product_data)
-    # generateAverageEmbedding_Wrapper(df=non_product_data)
-    # TODO - make sure non-english websites were removed before or to be removed now. - import the right files
-    data_to_classify = pd.read_parquet('../data/parquet_output/sublinks_depth7_2024-10-28 16-15.parquet')
-    data_to_classify = data_to_classify[:3000]  # TODO DELETE - just for testing
+
+    # data_to_classify = pd.read_parquet('../data/parquet_output/sublinks_depth7_2024-10-28 16-15.parquet')
+    data_to_classify = pd.read_parquet(
+        '../output/product_classification_regex_time_2024-11-07 11-19_inputfile_sublinks_depth7_2024-10-28 16-15.parquet')
+    product_page_df = data_to_classify[data_to_classify['Product Page'] == 1].copy()
+    data_to_classify = data_to_classify[data_to_classify['Product Page'] != 1]
+    data_to_classify = data_to_classify.drop(columns=['Product Page'])
+
     fetchVisibleContent_Wrapper(df=data_to_classify)
 
-    # data_to_classify.loc[data_to_classify['Content'] == '', 'Content'] = 'None'
     data_to_classify = data_to_classify[data_to_classify['Content'] != '']
 
     preprocessText_Wrapper(df=data_to_classify)
@@ -241,16 +236,13 @@ if __name__ == '__main__':
 
     classifyNewWebpages(product_df=product_data, newdata_df=data_to_classify)
     data_to_classify.drop(columns=['Avg_embed'], inplace=True)
+
     current_time = str(datetime.now().strftime("%Y-%m-%d %H-%M"))
-    data_to_classify.to_csv(f'../output/Testing_MatMul_Embeddings{current_time}.csv', index=False)
-
-    # high level
-    # TODO fetch content - done
-    # TODO preprocess - dome
-    # TODO run embeddings on product_data and non_product_data - done
-    # TODO run embeddings on new data ( Parquet files ) - done
-    # TODO make sure matrix P and NP have different webpages that cover multiple domains.
-    # TODO multiply the embeddings of the new data with the Product/Non_Product data - done
-    #  classify according to distance - done
-    # TODO RUN CODE ON NEWEST DATASET
-
+    data_to_classify.to_csv(
+        f'../output/product_classification_compare_webpage_embeddings_time_{current_time}_inputfile_stage2.csv',
+        index=False)
+    data_concat = pd.concat([data_to_classify, product_page_df], ignore_index=True)
+    data_concat.to_csv(
+        f'../output/product_classification_compare_webpage_embeddings_time_{current_time}_inputfile_stage2_concat2stages.csv',
+        index=False)
+    plot_exception_histogram(exception_counters)
