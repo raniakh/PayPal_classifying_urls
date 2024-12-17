@@ -73,7 +73,7 @@ def wordsInPathByDomain():
         plt.imshow(wordcloud, interpolation='bilinear')
         plt.axis('off')
         plt.title(f"Word Cloud for domain: {domain}")
-        plt.savefig(fname=f'pics/parquet/bydomain/wordCloud domain {domain}.png', format='png')
+        plt.savefig(fname=f'../pics/parquet/final/bydomain/wordCloud domain {domain}.png', format='png')
 
         most_common_words = word_counts.most_common(10)
         words, counts = zip(*most_common_words)
@@ -83,7 +83,7 @@ def wordsInPathByDomain():
         plt.title(f"Top 10 Most Common Words in Path for domain: {domain}")
         plt.xticks(rotation=45)
         plt.ylabel('Frequency')
-        plt.savefig(fname=f'pics/parquet/bydomain/barPlot domain {domain}.png', format='png')
+        plt.savefig(fname=f'../pics/parquet/final/bydomain/barPlot domain {domain}.png', format='png')
 
 
 def handleMissingValues():
@@ -114,26 +114,29 @@ def patternFrequency():
 
     df['pattern'] = np.select(conditions, choices, default='Other')
     pattern_counts = df['pattern'].value_counts()
+    total_count = pattern_counts.sum()
+    pattern_percentages = (pattern_counts / total_count) * 100
+
     plt.figure(figsize=(10, 6))
 
-    sns.barplot(x=pattern_counts.index, y=pattern_counts.values, palette="viridis")
+    sns.barplot(x=pattern_counts.index, y=pattern_percentages.values, palette="viridis")
 
-    plt.title('URL Pattern Frequencies', fontsize=16)
+    plt.title('URL Pattern Percentages', fontsize=16)
     plt.xlabel('URL Patterns', fontsize=12)
-    plt.ylabel('Frequency', fontsize=12)
+    plt.ylabel('%', fontsize=12)
 
     plt.xticks(rotation=45, ha='right')
 
-    for index, value in enumerate(pattern_counts.values):
-        plt.text(index, value, str(value), ha='center', va='bottom', fontsize=10)
+    for index, value in enumerate(pattern_percentages.values):
+        plt.text(index, value, f'{value:.2f}%', ha='center', va='bottom', fontsize=10)
 
     plt.tight_layout()
-    plt.savefig(fname=f'./pics/parquet/pattern_frequencies.png', format='png')
+    plt.savefig(fname=f'../pics/parquet/final/pattern_percentages.png', format='png')
     plt.show()
 
 
 if __name__ == '__main__':
-    df = pd.read_parquet('./data/parquet_output/sublinks_depth7_2024-10-28 16-15.parquet')
+    df = pd.read_parquet('../data/parquet_output/sublinks_depth7_2024-10-28 16-15.parquet')
     handleMissingValues()
     basicStats()
     wordAnalyzer()
