@@ -5,4 +5,12 @@
 /output/embeddings_stage2_10Clusters.csv
 output/.DS_Store
 output/*.pkl
+output/.DS_Store
 output/
+data/datahack_sample.csv
+data/datahack_sample_built_with.csv
+data/parquet_output/
+data/sublinks_depth7.csv
+data/.DS_Store
+pics/parquet/.DS_Store
+pics/parquet/final/.DS_Store
