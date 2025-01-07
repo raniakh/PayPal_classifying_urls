@@ -5,7 +5,6 @@ from nltk.tokenize import word_tokenize
 from nltk.stem import WordNetLemmatizer
 from langdetect import detect
 from langdetect.lang_detect_exception import LangDetectException
-# import nltk
 import re
 import requests
 from requests.exceptions import RequestException
@@ -64,8 +63,6 @@ def extractURLcomponents(inputcol='sublinks'):
     global sublinks
     sublinks['domain'] = sublinks[inputcol].apply(lambda x: urlparse(x).netloc)
     sublinks['path'] = sublinks[inputcol].apply(lambda x: urlparse(x).path)
-    # sublinks['params'] = sublinks[inputcol].apply(lambda x: urlparse(x).params)
-    # sublinks['query'] = sublinks[inputcol].apply(lambda x: urlparse(x).query)
     sublinks['fragment'] = sublinks[inputcol].apply(lambda x: urlparse(x).fragment)
 
 

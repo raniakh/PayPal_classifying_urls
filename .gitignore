@@ -1,5 +1,6 @@
 .idea/
 .DS_Store/
+.DS_Store?
 
 .ipynb_checkpoints/
 /output/embeddings_stage2_10Clusters.csv

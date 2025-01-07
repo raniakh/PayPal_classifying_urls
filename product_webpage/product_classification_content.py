@@ -37,9 +37,7 @@ keywords = ['buy now', 'more payment options', 'buy with apple pay', 'pay now',
             'product description', 'product specifications', 'product information',
             'customer reviews', 'product reviews',
             'you may also like', 'related products', 'more from this collection', 'other products',
-            'request a quote', 'view store information']
-# 'ratings', 'share product', 'reviews', 'sku', 'add to cart'
-# 'credit card', 'debit card', 'debit or credit card',
+            'request a quote', 'view store information', 'add to cart']
 
 headers = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) '
